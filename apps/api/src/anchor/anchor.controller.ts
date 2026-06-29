@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Headers, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString, Matches } from 'class-validator';
+import { STELLAR_ADDRESS_REGEX } from '@raiz/shared';
 import { AnchorService } from './anchor.service';
 
 class ChallengeDto {
-  @Matches(/^G[A-Z2-7]{55}$/)
+  @Matches(STELLAR_ADDRESS_REGEX)
   account!: string;
 }
 
@@ -14,7 +15,7 @@ class TokenDto {
 }
 
 class InteractiveDto {
-  @Matches(/^G[A-Z2-7]{55}$/)
+  @Matches(STELLAR_ADDRESS_REGEX)
   account!: string;
 
   @IsOptional()

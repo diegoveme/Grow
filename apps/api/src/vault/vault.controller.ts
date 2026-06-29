@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsString, Length, Matches } from 'class-validator';
+import { STELLAR_ADDRESS_REGEX } from '@raiz/shared';
 import { VaultService } from './vault.service';
 
 class BuildVaultTxDto {
-  @Matches(/^G[A-Z2-7]{55}$/)
+  @Matches(STELLAR_ADDRESS_REGEX)
   caller!: string;
 
   @IsString()

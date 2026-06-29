@@ -1,15 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, Length, Matches, Max, Min } from 'class-validator';
-
-const G_ADDRESS = /^G[A-Z2-7]{55}$/;
+import { BPS_DENOMINATOR, STELLAR_ADDRESS_REGEX } from '@raiz/shared';
 
 export class CreateRemittanceDto {
   @ApiProperty({ example: 'GSENDER...' })
-  @Matches(G_ADDRESS)
+  @Matches(STELLAR_ADDRESS_REGEX)
   from!: string;
 
   @ApiProperty({ example: 'GRECIPIENT...' })
-  @Matches(G_ADDRESS)
+  @Matches(STELLAR_ADDRESS_REGEX)
   to!: string;
 
   @ApiProperty({ example: '200.00', description: 'Amount in USDC display units' })
@@ -21,7 +20,7 @@ export class CreateRemittanceDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(10000)
+  @Max(BPS_DENOMINATOR)
   spendableBps?: number;
 }
 
@@ -35,6 +34,6 @@ export class PreviewDto {
   @IsOptional()
   @IsInt()
   @Min(0)
-  @Max(10000)
+  @Max(BPS_DENOMINATOR)
   spendableBps?: number;
 }

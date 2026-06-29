@@ -1,27 +1,26 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsInt, IsString, Length, Max, Min, Matches } from 'class-validator';
-
-const G_ADDRESS = /^G[A-Z2-7]{55}$/;
+import { BPS_DENOMINATOR, STELLAR_ADDRESS_REGEX } from '@raiz/shared';
 
 export class SetSplitDto {
   @ApiProperty({ example: 'GAB...', description: 'Recipient Stellar address' })
-  @Matches(G_ADDRESS, { message: 'user must be a valid Stellar public key' })
+  @Matches(STELLAR_ADDRESS_REGEX, { message: 'user must be a valid Stellar public key' })
   user!: string;
 
   @ApiProperty({ example: 7000, description: 'Spendable share in basis points (0–10000)' })
   @IsInt()
   @Min(0)
-  @Max(10000)
+  @Max(BPS_DENOMINATOR)
   spendableBps!: number;
 }
 
 export class ReceiveDto {
   @ApiProperty({ example: 'GSENDER...' })
-  @Matches(G_ADDRESS)
+  @Matches(STELLAR_ADDRESS_REGEX)
   from!: string;
 
   @ApiProperty({ example: 'GRECIPIENT...' })
-  @Matches(G_ADDRESS)
+  @Matches(STELLAR_ADDRESS_REGEX)
   to!: string;
 
   @ApiProperty({ example: '200.00', description: 'USDC amount in display units' })
@@ -32,7 +31,7 @@ export class ReceiveDto {
 
 export class WithdrawDto {
   @ApiProperty({ example: 'GRECIPIENT...' })
-  @Matches(G_ADDRESS)
+  @Matches(STELLAR_ADDRESS_REGEX)
   to!: string;
 
   @ApiProperty({ example: '100.00' })
