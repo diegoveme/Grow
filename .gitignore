@@ -19,6 +19,7 @@ coverage/
 target/
 **/target/
 *.wasm
+**/test_snapshots/
 
 # ─────────────────────────────────────────────────────────────
 # Environment & secrets

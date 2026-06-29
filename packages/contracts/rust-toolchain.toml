@@ -1,0 +1,4 @@
+# Ensure the Soroban wasm target is available without pinning a specific host
+# toolchain (lets each machine use its default stable channel).
+[toolchain]
+targets = ["wasm32v1-none"]

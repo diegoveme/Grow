@@ -1,0 +1,13 @@
+{
+  "name": "@raiz/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Raíz Soroban contracts — yield_splitter",
+  "scripts": {
+    "build": "stellar contract build",
+    "test": "cargo test",
+    "optimize": "stellar contract optimize --wasm target/wasm32v1-none/release/yield_splitter.wasm",
+    "deploy": "bun run scripts/deploy.ts",
+    "typecheck": "echo \"(rust crate — see cargo)\""
+  }
+}
