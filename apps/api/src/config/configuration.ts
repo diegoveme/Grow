@@ -18,6 +18,11 @@ export interface AppConfig {
     defindexVault?: string;
     usdcToken: string;
   };
+  /** Classic USDC asset (code + issuer) backing the SAC in `contracts.usdcToken`. */
+  usdc: {
+    code: string;
+    issuer: string;
+  };
   defindexApiKey?: string;
   database: {
     url?: string;
@@ -51,6 +56,13 @@ export default (): AppConfig => {
       usdcToken:
         process.env.USDC_TOKEN_ID ??
         'CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU',
+    },
+    usdc: {
+      code: process.env.USDC_CODE ?? 'USDC',
+      // Classic issuer whose SAC equals contracts.usdcToken on testnet.
+      issuer:
+        process.env.USDC_ISSUER ??
+        'GATALTGTWIOT6BUDBCZM3Q4OQ4BO2COLOAZ7IYSKPLC2PMSOPPGF5V56',
     },
     defindexApiKey: process.env.DEFINDEX_API_KEY?.trim() || undefined,
     database: {
