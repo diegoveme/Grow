@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
 import { StellarModule } from './stellar/stellar.module';
+import { AccountsModule } from './accounts/accounts.module';
 import { AnchorModule } from './anchor/anchor.module';
 import { SplitsModule } from './splits/splits.module';
 import { VaultModule } from './vault/vault.module';
@@ -15,6 +16,7 @@ import { RemittancesModule } from './remittances/remittances.module';
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     DatabaseModule,
     StellarModule,
+    AccountsModule,
     AnchorModule,
     SplitsModule,
     VaultModule,
