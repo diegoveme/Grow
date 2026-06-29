@@ -53,6 +53,10 @@ CLAUDE.md
 AGENTS.md
 ai-notes/
 scratchpad/
+.mcp.json
+.claude-skills/
+.skills/
+skills/supabase/
 
 # ─────────────────────────────────────────────────────────────
 # Planning / reference docs (kept local, out of the repo)
@@ -61,3 +65,4 @@ GuiaPoryecto.jpg
 MiniContexto.md
 raiz concept.html
 docs/_private/
+TODO.md

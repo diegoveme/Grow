@@ -19,6 +19,7 @@ export interface AppConfig {
     usdcToken: string;
   };
   defindexApiKey?: string;
+  databaseUrl?: string;
 }
 
 export default (): AppConfig => {
@@ -44,6 +45,7 @@ export default (): AppConfig => {
         process.env.USDC_TOKEN_ID ??
         'CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU',
     },
-    defindexApiKey: process.env.DEFINDEX_API_KEY || undefined,
+    defindexApiKey: process.env.DEFINDEX_API_KEY?.trim() || undefined,
+    databaseUrl: process.env.DATABASE_URL?.trim() || undefined,
   };
 };
