@@ -218,7 +218,7 @@ export default function SendPage() {
       </Card>
 
       <p className="mt-4 text-center text-xs opacity-40">
-        Don't have testnet funds?{" "}
+        Don't have funds yet?{" "}
         <Link href="/app/receive" className="text-agua/70 hover:text-agua">
           Fund your wallet →
         </Link>

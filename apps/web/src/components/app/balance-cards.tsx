@@ -2,7 +2,10 @@
 
 import { Card } from "@/components/ui/card";
 import type { AccountInfo } from "@/lib/api";
+import { config } from "@/lib/config";
 import { formatAmount } from "@/lib/format";
+
+const NETWORK_LABEL = config.network === "PUBLIC" ? "mainnet" : "testnet";
 
 /** USDC + XLM balance tiles, driven by live account info. */
 export function BalanceCards({ info }: { info: AccountInfo | null }) {
@@ -26,7 +29,7 @@ export function BalanceCards({ info }: { info: AccountInfo | null }) {
         <div className="mt-2 text-xs opacity-45">
           {usdc === null
             ? "No USDC trustline yet. Add it from Receive."
-            : "Stellar USDC · testnet"}
+            : `Stellar USDC · ${NETWORK_LABEL}`}
         </div>
         <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-oro/10 blur-2xl" />
       </Card>

@@ -24,7 +24,16 @@ export class VaultService {
       rpc: this.config.get('sorobanRpcUrl', { infer: true }),
       passphrase: this.config.get('networkPassphrase', { infer: true }),
       apiKey: this.config.get('defindexApiKey', { infer: true }),
+      network: this.config.get('network', { infer: true }),
     };
+  }
+
+  /** Map the app network to the DeFindex SDK's network enum (testnet ↔ mainnet). */
+  private async defindexNetwork() {
+    const { SupportedNetworks } = await import('@defindex/sdk');
+    return this.cfg().network === 'PUBLIC'
+      ? SupportedNetworks.MAINNET
+      : SupportedNetworks.TESTNET;
   }
 
   /** Supply APY (as a fraction, 0.06 = 6%) for the configured Blend USDC pool. */
@@ -55,8 +64,7 @@ export class VaultService {
     if (contracts.defindexVault && apiKey) {
       try {
         const sdk = await this.defindex();
-        const { SupportedNetworks } = await import('@defindex/sdk');
-        const apy = await sdk.getVaultAPY(contracts.defindexVault, SupportedNetworks.TESTNET);
+        const apy = await sdk.getVaultAPY(contracts.defindexVault, await this.defindexNetwork());
         return { apy: Number(apy), source: 'defindex' };
       } catch (err) {
         this.logger.warn(`DeFindex APY failed, falling back to Blend: ${String(err)}`);
@@ -72,11 +80,10 @@ export class VaultService {
       throw new ServiceUnavailableException('DEFINDEX_VAULT_ADDRESS is not configured.');
     }
     const sdk = await this.defindex();
-    const { SupportedNetworks } = await import('@defindex/sdk');
     const balance = (await sdk.getVaultBalance(
       contracts.defindexVault,
       user,
-      SupportedNetworks.TESTNET,
+      await this.defindexNetwork(),
     )) as unknown as Record<string, unknown>;
     const { apy } = await this.getApy();
     const ub = balance.underlyingBalance ?? balance.totalBalance ?? balance.balance;
@@ -97,11 +104,10 @@ export class VaultService {
       throw new ServiceUnavailableException('DEFINDEX_VAULT_ADDRESS is not configured.');
     }
     const sdk = await this.defindex();
-    const { SupportedNetworks } = await import('@defindex/sdk');
     const res = await sdk.depositToVault(
       contracts.defindexVault,
       { amounts: [Number(toStroops(amount))], caller, invest: true, slippageBps: 100 },
-      SupportedNetworks.TESTNET,
+      await this.defindexNetwork(),
     );
     return this.extractXdr(res);
   }
@@ -113,11 +119,10 @@ export class VaultService {
       throw new ServiceUnavailableException('DEFINDEX_VAULT_ADDRESS is not configured.');
     }
     const sdk = await this.defindex();
-    const { SupportedNetworks } = await import('@defindex/sdk');
     const res = await sdk.withdrawShares(
       contracts.defindexVault,
       { shares: Number(toStroops(shares)), caller, slippageBps: 100 },
-      SupportedNetworks.TESTNET,
+      await this.defindexNetwork(),
     );
     return this.extractXdr(res);
   }
