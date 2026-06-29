@@ -11,11 +11,11 @@ export const config = {
   usdcContractId:
     process.env.NEXT_PUBLIC_USDC_TOKEN_ID ??
     "CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU",
-  /** Stellar Expert explorer base for the active network. */
+  /** StellarView explorer base for the active network. */
   explorer:
     network === "PUBLIC"
-      ? "https://stellar.expert/explorer/public"
-      : "https://stellar.expert/explorer/testnet",
+      ? "https://stellarview.acachete.xyz/en/public"
+      : "https://stellarview.acachete.xyz/en/testnet",
 };
 
 export const explorerTx = (hash: string) => `${config.explorer}/tx/${hash}`;
