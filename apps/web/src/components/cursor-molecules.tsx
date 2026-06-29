@@ -13,13 +13,13 @@ interface Particle {
   color: string;
 }
 
-const COLORS = ["#3ECAD6", "#7EDEE7", "#3ECAD6", "#C8A84B"];
+const COLORS = ["#3A7D3F", "#57A35C", "#4F9A4A", "#A97E2B"];
 const MAX_PARTICLES = 150;
 const LINK_DIST = 34;
 
 /**
- * Blue "molecules" that bloom from the cursor and drift upward, echoing the
- * floating particles in the landing hero. Pure canvas, pointer-events-none, so
+ * Leaf-green "molecules" that bloom from the cursor and drift upward, echoing
+ * the growing roots in the landing hero. Pure canvas, pointer-events-none, so
  * it never blocks the connect button beneath it. Fills its positioned parent.
  */
 export function CursorMolecules() {
@@ -96,7 +96,7 @@ export function CursorMolecules() {
           const dist = Math.hypot(dx, dy);
           if (dist < LINK_DIST) {
             const fade = (1 - a.life / a.max) * (1 - b.life / b.max);
-            ctx.strokeStyle = `rgba(62,202,214,${(1 - dist / LINK_DIST) * 0.22 * fade})`;
+            ctx.strokeStyle = `rgba(58,125,63,${(1 - dist / LINK_DIST) * 0.22 * fade})`;
             ctx.lineWidth = 0.6;
             ctx.beginPath();
             ctx.moveTo(a.x, a.y);

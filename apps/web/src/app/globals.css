@@ -1,22 +1,23 @@
 @import "tailwindcss";
 
 /*
- * Raíz design system. "Your money takes root".
- * Dark, earthy palette with water (agua) as the active accent and gold (oro)
- * for yield. Exposed as Tailwind theme tokens so utilities like `bg-tierra`,
- * `text-agua`, `text-oro`, `font-display` are generated automatically.
+ * Grow design system — "your money takes root and grows".
+ * Light, organic palette taken from the Grow logo: warm paper cream as the
+ * canvas, ink-black for type, and leaf green as the living accent, with an
+ * earthy ochre for yield. Token names are kept stable so existing utilities
+ * (`bg-tierra`, `text-agua`, `text-oro`, `text-luz`…) re-theme in one place.
  */
 @theme {
-  --color-tierra: #1c1a14;
-  --color-tierra-mid: #2e2a1e;
-  --color-semilla: #4a3f28;
-  --color-musgo: #2d4a2a;
-  --color-brote: #5c9e55;
-  --color-agua: #3ecad6;
-  --color-agua-palo: #7edee7;
-  --color-luz: #f7f0e0;
-  --color-luz-tenue: #ede5d0;
-  --color-oro: #c8a84b;
+  --color-tierra: #ebe5d4; /* paper — base background */
+  --color-tierra-mid: #f6f1e5; /* raised paper — cards / panels */
+  --color-semilla: #ded5c0; /* seed — borders / nodes */
+  --color-musgo: #2c552c; /* moss — deep green */
+  --color-brote: #4f9a4a; /* sprout — success / growth accent */
+  --color-agua: #3a7d3f; /* leaf — primary action (green) */
+  --color-agua-palo: #57a35c; /* light leaf — hover */
+  --color-luz: #1c1b16; /* ink — primary text */
+  --color-luz-tenue: #595345; /* soft ink — secondary text */
+  --color-oro: #a97e2b; /* ochre — yield / earnings */
 
   --font-display: var(--font-playfair), Georgia, serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
@@ -68,6 +69,43 @@ body {
 
 .animate-rise {
   animation: rise 0.6s ease-out both;
+}
+
+/*
+ * Roots growing upward from the bottom of the hero, on a continuous loop. Each
+ * path draws itself from base to tip (stroke-dashoffset → 0), holds, then fades
+ * out and regrows — so the roots are always visibly rising. The dash reset
+ * happens while opacity is 0, so the loop never "snaps".
+ */
+@keyframes grow-loop {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  60% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  84% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 0;
+  }
+}
+
+/* Paths use pathLength="1", so the normalized dash works at any real length.
+   Per-root tint comes from a wrapping <g opacity=…>, not this animation. */
+.grow-root {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+  animation: grow-loop 5.5s ease-in-out infinite;
 }
 
 ::selection {

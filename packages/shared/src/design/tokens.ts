@@ -1,22 +1,23 @@
 /**
- * Raíz design tokens — the visual language of "your money takes root".
- * Dark, earthy palette: soil at the base, water (agua) as the active accent,
- * gold (oro) for yield, and moss/sprout greens for growth.
+ * Grow design tokens — the visual language of "your money takes root and grows".
+ * Light, organic palette from the Grow logo: warm paper cream as the canvas,
+ * ink-black for type, leaf green as the living accent, and an earthy ochre for
+ * yield.
  *
  * Mirrors the reference concept so web (Tailwind) and any future surface
  * share a single source of truth.
  */
 export const colors = {
-  tierra: '#1C1A14', // soil — base background
-  tierraMid: '#2E2A1E', // raised soil — cards / panels
-  semilla: '#4A3F28', // seed — borders / nodes
-  musgo: '#2D4A2A', // moss — secondary growth
-  brote: '#5C9E55', // sprout — success / growth accent
-  agua: '#3ECAD6', // water — primary action (cyan)
-  aguaPalo: '#7EDEE7', // light water — hover
-  luz: '#F7F0E0', // light — primary text
-  luzTenue: '#EDE5D0', // dim light — secondary text
-  oro: '#C8A84B', // gold — yield / earnings
+  tierra: '#EBE5D4', // paper — base background
+  tierraMid: '#F6F1E5', // raised paper — cards / panels
+  semilla: '#DED5C0', // seed — borders / nodes
+  musgo: '#2C552C', // moss — deep green
+  brote: '#4F9A4A', // sprout — success / growth accent
+  agua: '#3A7D3F', // leaf — primary action (green)
+  aguaPalo: '#57A35C', // light leaf — hover
+  luz: '#1C1B16', // ink — primary text
+  luzTenue: '#595345', // soft ink — secondary text
+  oro: '#A97E2B', // ochre — yield / earnings
 } as const;
 
 export type ColorToken = keyof typeof colors;
