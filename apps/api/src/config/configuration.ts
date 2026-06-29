@@ -19,7 +19,14 @@ export interface AppConfig {
     usdcToken: string;
   };
   defindexApiKey?: string;
-  databaseUrl?: string;
+  database: {
+    url?: string;
+    host?: string;
+    port: number;
+    user: string;
+    password?: string;
+    name: string;
+  };
 }
 
 export default (): AppConfig => {
@@ -46,6 +53,15 @@ export default (): AppConfig => {
         'CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU',
     },
     defindexApiKey: process.env.DEFINDEX_API_KEY?.trim() || undefined,
-    databaseUrl: process.env.DATABASE_URL?.trim() || undefined,
+    database: {
+      // A full connection string is supported, but individual vars take
+      // precedence and avoid URL-encoding pitfalls for passwords with @, spaces, etc.
+      url: process.env.DATABASE_URL?.trim() || undefined,
+      host: process.env.DATABASE_HOST?.trim() || undefined,
+      port: Number(process.env.DATABASE_PORT ?? 5432),
+      user: process.env.DATABASE_USER?.trim() || 'postgres',
+      password: process.env.DATABASE_PASSWORD || undefined,
+      name: process.env.DATABASE_NAME?.trim() || 'postgres',
+    },
   };
 };

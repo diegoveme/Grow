@@ -44,21 +44,33 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleInit(): Promise<void> {
-    const url = this.config.get('databaseUrl', { infer: true });
-    if (!url) {
-      this.logger.warn('DATABASE_URL not set — remittances will use in-memory storage.');
+    const db = this.config.get('database', { infer: true });
+
+    // Prefer individual vars (password passed raw — no URL-encoding needed for
+    // @, spaces, etc.), falling back to a full DATABASE_URL.
+    let conn: ConnectionParts | undefined;
+    if (db.host && db.password) {
+      conn = {
+        host: db.host,
+        port: db.port,
+        database: db.name,
+        username: db.user,
+        password: db.password,
+      };
+    } else if (db.url) {
+      conn = parseConnectionString(db.url);
+    }
+
+    if (!conn) {
+      this.logger.warn(
+        'No database configured (set DATABASE_HOST + DATABASE_PASSWORD, or DATABASE_URL) — using in-memory storage.',
+      );
       return;
     }
+
     try {
-      // Parse into an options object rather than handing postgres.js the raw
-      // URL: this works identically under Node and Bun and lets us force SSL.
-      const u = new URL(url);
       const client = postgres({
-        host: u.hostname,
-        port: Number(u.port || 5432),
-        database: u.pathname.slice(1) || 'postgres',
-        username: decodeURIComponent(u.username),
-        password: decodeURIComponent(u.password),
+        ...conn,
         ssl: 'require',
         max: 5,
         prepare: false, // safe with Supabase's transaction pooler
@@ -66,14 +78,59 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       });
       await client.unsafe(SCHEMA);
       this.client = client;
-      this.logger.log('Connected to Supabase Postgres and ensured schema.');
+      this.logger.log(
+        `Connected to Postgres at ${conn.host}:${conn.port} (db "${conn.database}") and ensured schema.`,
+      );
     } catch (err) {
-      this.logger.error(`Database setup failed, falling back to memory: ${String(err)}`);
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Database setup failed (host ${conn.host}), falling back to memory: ${message}`,
+      );
       this.client = undefined;
     }
   }
 
   async onModuleDestroy(): Promise<void> {
     await this.client?.end({ timeout: 5 });
+  }
+}
+
+interface ConnectionParts {
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+}
+
+/**
+ * Parse a Postgres connection string into parts. Prefers the WHATWG URL parser,
+ * but falls back to a manual parse so passwords with unencoded special
+ * characters (common with auto-generated DB passwords) still work.
+ */
+export function parseConnectionString(url: string): ConnectionParts {
+  try {
+    const u = new URL(url);
+    if (!u.hostname) throw new Error('missing host');
+    return {
+      host: u.hostname,
+      port: Number(u.port || 5432),
+      database: u.pathname.slice(1) || 'postgres',
+      username: decodeURIComponent(u.username),
+      password: decodeURIComponent(u.password),
+    };
+  } catch {
+    const body = url.trim().replace(/^postgres(?:ql)?:\/\//, '');
+    const at = body.lastIndexOf('@');
+    const creds = body.slice(0, at);
+    const rest = body.slice(at + 1);
+    const colon = creds.indexOf(':');
+    const username = decodeURIComponent(creds.slice(0, colon));
+    const password = decodeURIComponent(creds.slice(colon + 1));
+    const slash = rest.indexOf('/');
+    const hostPort = slash === -1 ? rest : rest.slice(0, slash);
+    const database = (slash === -1 ? 'postgres' : rest.slice(slash + 1)).split('?')[0] || 'postgres';
+    const [host, port] = hostPort.split(':');
+    return { host, port: Number(port || 5432), database, username, password };
   }
 }
