@@ -57,6 +57,7 @@ scratchpad/
 .claude-skills/
 .skills/
 skills/supabase/
+.ai-memory/
 
 # ─────────────────────────────────────────────────────────────
 # Planning / reference docs (kept local, out of the repo)
