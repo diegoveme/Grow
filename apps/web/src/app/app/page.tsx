@@ -13,7 +13,7 @@ import { formatApy, shortAddress } from "@/lib/format";
 
 export default function OverviewPage() {
   const { address } = useWallet();
-  const { data: info, loading } = useAccount(address);
+  const { data: info } = useAccount(address);
   const { data: payments } = usePayments(address, 5);
   const spendableBps = useRatio(address);
   const apy = useApy();
@@ -28,7 +28,7 @@ export default function OverviewPage() {
         subtitle={`Connected as ${shortAddress(address, 6, 6)}`}
       />
 
-      <BalanceCards info={info} loading={loading} />
+      <BalanceCards info={info} />
 
       {/* Quick actions */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2">

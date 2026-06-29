@@ -5,7 +5,7 @@ import type { AccountInfo } from "@/lib/api";
 import { formatAmount } from "@/lib/format";
 
 /** USDC + XLM balance tiles, driven by live account info. */
-export function BalanceCards({ info, loading }: { info: AccountInfo | null; loading?: boolean }) {
+export function BalanceCards({ info }: { info: AccountInfo | null }) {
   const usdc = info?.usdc ?? null;
   const xlm = info?.xlm ?? "0";
 
@@ -39,10 +39,6 @@ export function BalanceCards({ info, loading }: { info: AccountInfo | null; load
         </div>
         <div className="pointer-events-none absolute -right-6 -top-6 h-24 w-24 rounded-full bg-agua/10 blur-2xl" />
       </Card>
-
-      {loading && (
-        <div className="sm:col-span-2 -mt-2 text-xs opacity-40">Refreshing balances…</div>
-      )}
     </div>
   );
 }
