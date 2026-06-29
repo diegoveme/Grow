@@ -8,7 +8,11 @@ import { ConnectButton } from "@/components/connect-button";
 import { useWallet } from "@/lib/wallet";
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { address } = useWallet();
+  const { address, ready } = useWallet();
+
+  // While the kit is still checking for a stored wallet, show a neutral splash
+  // so a reload never flashes the connect modal before reconnecting.
+  if (!ready) return <BootSplash />;
 
   // Until a wallet is connected, the whole app is replaced by a modal so the
   // dashboard chrome is never visible to a disconnected user.
@@ -37,6 +41,15 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <MobileNav />
+    </div>
+  );
+}
+
+/** Neutral splash shown while the wallet kit checks for a stored session. */
+function BootSplash() {
+  return (
+    <div className="grid min-h-screen w-full place-items-center bg-tierra">
+      <span className="h-3 w-3 animate-pulse rounded-full bg-agua" />
     </div>
   );
 }

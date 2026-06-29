@@ -17,6 +17,8 @@ import { config } from "./config";
  */
 interface WalletContextValue {
   address: string | null;
+  /** False until the initial silent-reconnect check has finished. */
+  ready: boolean;
   connecting: boolean;
   connect: () => Promise<void>;
   disconnect: () => void;
@@ -27,6 +29,7 @@ const WalletContext = createContext<WalletContextValue | null>(null);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [address, setAddress] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const initialized = useRef(false);
 
@@ -46,7 +49,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     return StellarWalletsKit;
   }, []);
 
-  // Reconnect silently if the kit already remembers a wallet.
+  // Reconnect silently if the kit already remembers a wallet. `ready` flips to
+  // true only once this check resolves, so the UI never flashes the connect
+  // modal during a reload while the stored address is still being read.
   useEffect(() => {
     (async () => {
       try {
@@ -55,6 +60,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         if (address) setAddress(address);
       } catch {
         /* no wallet connected yet, ignore */
+      } finally {
+        setReady(true);
       }
     })();
   }, [ensureInit]);
@@ -96,7 +103,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <WalletContext.Provider
-      value={{ address, connecting, connect, disconnect, signTransaction }}
+      value={{ address, ready, connecting, connect, disconnect, signTransaction }}
     >
       {children}
     </WalletContext.Provider>
