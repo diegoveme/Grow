@@ -25,7 +25,7 @@ const steps = [
   },
   {
     icon: "🌱",
-    title: "Raíz splits it",
+    title: "Grow splits it",
     desc: "A Soroban smart contract (Rust) automatically divides the funds: the part you keep spendable, and the part you want to grow.",
     tag: "Soroban · Rust",
   },
@@ -39,12 +39,14 @@ const steps = [
 
 export default function Home() {
   return (
-    <>
+    <div className="relative overflow-hidden">
+      {/* root system growing from the footer up to the title, behind everything */}
+      <RootBg />
+
       <SiteNav />
 
       {/* HERO */}
-      <section className="relative grid min-h-screen place-items-center overflow-hidden px-6 pb-16 pt-28">
-        <RootBg />
+      <section className="relative z-10 grid min-h-screen place-items-center px-6 pb-16 pt-28">
         <CursorMolecules />
         <div className="relative z-10 mx-auto max-w-3xl text-center animate-rise">
           <div className="mb-6 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.18em] text-agua">
@@ -90,7 +92,7 @@ export default function Home() {
       </section>
 
       {/* FLOW */}
-      <section id="how" className="mx-auto max-w-4xl px-6 py-28">
+      <section id="how" className="relative z-10 mx-auto max-w-4xl px-6 py-28">
         <div className="mb-4 text-xs uppercase tracking-[0.14em] text-agua/80">The flow</div>
         <h2 className="mb-14 font-display text-3xl font-bold leading-tight md:text-5xl">
           Four steps.
@@ -155,16 +157,16 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer className="mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-luz/5 px-6 py-10 md:px-10">
+      <footer className="relative z-10 mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-luz/5 px-6 py-10 md:px-10">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-agua" />
-          <span className="font-display text-lg font-bold text-luz">Raíz</span>
+          <span className="font-display text-lg font-bold text-luz">Grow</span>
         </div>
         <div className="text-xs uppercase tracking-wider text-agua/70">
           ⬡ Built on Stellar · Soroban · DeFindex · Blend
         </div>
         <div className="text-xs opacity-30">PayFi · 2026</div>
       </footer>
-    </>
+    </div>
   );
 }
