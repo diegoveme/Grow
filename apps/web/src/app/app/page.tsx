@@ -1,65 +1,115 @@
 "use client";
 
-import { useState } from "react";
-import { SiteNav } from "@/components/site-nav";
-import { ConnectButton } from "@/components/connect-button";
-import { PositionCard } from "@/components/dashboard/position-card";
-import { YieldCard } from "@/components/dashboard/yield-card";
-import { SplitConfig } from "@/components/dashboard/split-config";
-import { SendForm } from "@/components/dashboard/send-form";
-import { ManageCard } from "@/components/dashboard/manage-card";
+import Link from "next/link";
+import { PageHeader } from "@/components/app/page-header";
+import { BalanceCards } from "@/components/app/balance-cards";
+import { SplitBar } from "@/components/app/split-bar";
+import { ActivityList } from "@/components/app/activity-list";
+import { Card, CardLabel } from "@/components/ui/card";
+import { SendIcon, ReceiveIcon } from "@/components/app/icons";
 import { useWallet } from "@/lib/wallet";
-import { shortAddress } from "@/lib/format";
+import { useAccount, useApy, usePayments, useRatio } from "@/lib/hooks";
+import { formatApy, shortAddress } from "@/lib/format";
 
-export default function DashboardPage() {
+export default function OverviewPage() {
   const { address } = useWallet();
-  const [refreshKey, setRefreshKey] = useState(0);
-  const refresh = () => setRefreshKey((k) => k + 1);
+  const { data: info, loading } = useAccount(address);
+  const { data: payments } = usePayments(address, 5);
+  const spendableBps = useRatio(address);
+  const apy = useApy();
+
+  if (!address) return null;
 
   return (
-    <>
-      <SiteNav />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 pb-24 pt-32">
-        {!address ? (
-          <ConnectGate />
-        ) : (
-          <div className="animate-rise">
-            <div className="mb-10">
-              <div className="text-xs uppercase tracking-[0.14em] text-agua/80">Dashboard</div>
-              <h1 className="mt-2 font-display text-4xl font-bold">Welcome back</h1>
-              <p className="mt-1 font-mono text-sm opacity-50">{shortAddress(address, 6, 6)}</p>
-            </div>
+    <div className="animate-rise">
+      <PageHeader
+        eyebrow="Overview"
+        title="Your roots"
+        subtitle={`Connected as ${shortAddress(address, 6, 6)}`}
+      />
 
-            <div className="grid gap-6 md:grid-cols-3">
-              <PositionCard address={address} refreshKey={refreshKey} />
-              <YieldCard />
-              <SplitConfig onSaved={refresh} />
-              <SendForm onSent={refresh} />
-              <ManageCard onChange={refresh} />
+      <BalanceCards info={info} loading={loading} />
+
+      {/* Quick actions */}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <Link
+          href="/app/send"
+          className="group flex items-center justify-between rounded-md border border-luz/5 bg-tierra-mid/60 px-5 py-4 transition-colors hover:border-agua/40"
+        >
+          <div className="flex items-center gap-3">
+            <SendIcon className="text-agua" />
+            <div>
+              <div className="text-sm font-medium">Send money</div>
+              <div className="text-xs opacity-45">XLM or USDC, in seconds</div>
             </div>
           </div>
-        )}
-      </main>
-    </>
-  );
-}
-
-function ConnectGate() {
-  return (
-    <div className="grid min-h-[50vh] place-items-center text-center">
-      <div className="animate-rise">
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-agua/30 bg-semilla/40 text-2xl">
-          🌱
-        </div>
-        <h1 className="font-display text-3xl font-bold">Connect your wallet</h1>
-        <p className="mx-auto mt-3 max-w-sm text-sm opacity-60">
-          Connect a Stellar wallet to see your balances, set your split and send remittances
-          that grow.
-        </p>
-        <div className="mt-8 flex justify-center">
-          <ConnectButton />
-        </div>
+          <span className="text-agua opacity-0 transition-opacity group-hover:opacity-100">→</span>
+        </Link>
+        <Link
+          href="/app/receive"
+          className="group flex items-center justify-between rounded-md border border-luz/5 bg-tierra-mid/60 px-5 py-4 transition-colors hover:border-oro/40"
+        >
+          <div className="flex items-center gap-3">
+            <ReceiveIcon className="text-oro" />
+            <div>
+              <div className="text-sm font-medium">Receive money</div>
+              <div className="text-xs opacity-45">Share your address · add USDC</div>
+            </div>
+          </div>
+          <span className="text-oro opacity-0 transition-opacity group-hover:opacity-100">→</span>
+        </Link>
       </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        {/* Split */}
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <CardLabel>Your split</CardLabel>
+            <Link href="/app/settings" className="text-xs text-agua/70 hover:text-agua">
+              Adjust →
+            </Link>
+          </div>
+          <p className="mb-5 text-sm opacity-55">
+            Every USDC remittance you receive is divided automatically. Part stays spendable,
+            part takes root and earns yield.
+          </p>
+          <SplitBar spendableBps={spendableBps} />
+        </Card>
+
+        {/* Yield teaser */}
+        <Card className="flex flex-col justify-between">
+          <CardLabel>Yield</CardLabel>
+          <div>
+            <div className="font-display text-4xl font-bold text-oro">
+              {apy ? formatApy(apy.apy) : <span className="opacity-40">·</span>}
+            </div>
+            <div className="mt-1 text-xs opacity-45">
+              {apy ? "Current APY · DeFindex to Blend" : "Configure a pool to go live"}
+            </div>
+          </div>
+          <Link
+            href="/app/yield"
+            className="mt-4 text-xs uppercase tracking-wide text-oro/80 hover:text-oro"
+          >
+            View vault →
+          </Link>
+        </Card>
+      </div>
+
+      {/* Recent activity */}
+      <Card className="mt-4">
+        <div className="flex items-center justify-between">
+          <CardLabel>Recent activity</CardLabel>
+          <Link href="/app/activity" className="text-xs text-agua/70 hover:text-agua">
+            See all →
+          </Link>
+        </div>
+        <ActivityList
+          items={payments ?? []}
+          viewer={address}
+          emptyHint="No transactions yet. Send or receive to get started."
+        />
+      </Card>
     </div>
   );
 }
