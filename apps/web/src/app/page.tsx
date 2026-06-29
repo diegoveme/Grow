@@ -1,65 +1,168 @@
-import Image from "next/image";
+import Link from "next/link";
+import { SiteNav } from "@/components/site-nav";
+import { RootBg } from "@/components/root-bg";
+
+const stats = [
+  { num: "$860B", label: "Global remittances / yr" },
+  { num: "<5s", label: "Settlement time" },
+  { num: "~6%", label: "APY on yield" },
+  { num: "$0.001", label: "Fee per tx" },
+];
+
+const steps = [
+  {
+    icon: "🌎",
+    title: "Send from anywhere",
+    desc: "Connect your wallet and send USDC over Stellar. No intermediary bank. No three business days.",
+    tag: "Stellar · SEP-24",
+  },
+  {
+    icon: "⚡",
+    title: "Arrives in seconds",
+    desc: "The transaction finalizes on Stellar in under five seconds. The anchor converts and delivers in USDC.",
+    tag: "Anchor ramps",
+  },
+  {
+    icon: "🌱",
+    title: "Raíz splits it",
+    desc: "A Soroban smart contract (Rust) automatically divides the funds: the part you keep spendable, and the part you want to grow.",
+    tag: "Soroban · Rust",
+  },
+  {
+    icon: "🌾",
+    title: "The root earns yield",
+    desc: "The savings portion enters a DeFindex vault routing into Blend. It earns APY in USDC — withdraw anytime, even as cash.",
+    tag: "DeFindex · Blend",
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <>
+      <SiteNav />
+
+      {/* HERO */}
+      <section className="relative grid min-h-screen place-items-center overflow-hidden px-6 pb-16 pt-28">
+        <RootBg />
+        <div className="relative z-10 mx-auto max-w-3xl text-center animate-rise">
+          <div className="mb-6 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.18em] text-agua">
+            <span className="h-px w-8 bg-agua/40" />
+            Remittances · Stellar · DeFi
+            <span className="h-px w-8 bg-agua/40" />
+          </div>
+          <h1 className="font-display text-5xl font-black leading-[1.05] tracking-tight md:text-7xl">
+            Your money arrives
+            <br />
+            and <em className="italic text-agua">takes root.</em>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+          <p className="mx-auto mt-6 max-w-md text-luz-tenue/75">
+            Send across borders. Your family receives it instantly — and a part grows on its
+            own, earning yield while they live.
+          </p>
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+            <Link
+              href="/app"
+              className="rounded-[2px] bg-agua px-8 py-3.5 text-sm font-medium uppercase tracking-wide text-tierra transition-colors hover:bg-agua-palo"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Start sending
+            </Link>
+            <Link
+              href="/#how"
+              className="rounded-[2px] border border-luz/20 px-8 py-3.5 text-sm uppercase tracking-wide text-luz transition-colors hover:border-agua hover:text-agua"
             >
-              Learning
-            </a>{" "}
-            center.
+              How it works
+            </Link>
+          </div>
+
+          <div className="mt-16 flex flex-wrap justify-center gap-x-12 gap-y-6 border-t border-luz/10 pt-10">
+            {stats.map((s) => (
+              <div key={s.label} className="text-center">
+                <span className="block font-display text-3xl font-bold text-oro">{s.num}</span>
+                <span className="mt-1 block text-xs uppercase tracking-wider opacity-50">
+                  {s.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FLOW */}
+      <section id="how" className="mx-auto max-w-4xl px-6 py-28">
+        <div className="mb-4 text-xs uppercase tracking-[0.14em] text-agua/80">The flow</div>
+        <h2 className="mb-14 font-display text-3xl font-bold leading-tight md:text-5xl">
+          Four steps.
+          <br />
+          Your money works.
+        </h2>
+
+        <div className="relative">
+          <div className="absolute bottom-3 left-6 top-3 w-px bg-gradient-to-b from-agua via-brote to-oro opacity-30" />
+          <div className="space-y-2">
+            {steps.map((step) => (
+              <div key={step.title} className="grid grid-cols-[48px_1fr] items-start gap-6 py-6">
+                <div className="z-10 flex h-12 w-12 items-center justify-center rounded-full border border-semilla bg-semilla/60 text-lg">
+                  {step.icon}
+                </div>
+                <div>
+                  <h3 className="font-display text-lg font-bold">{step.title}</h3>
+                  <p className="mt-1 text-sm leading-relaxed opacity-60">{step.desc}</p>
+                  <span className="mt-3 inline-block rounded-[1px] bg-agua/10 px-2.5 py-1 text-[0.68rem] uppercase tracking-wider text-agua">
+                    {step.tag}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SPLIT VISUAL */}
+        <div className="mt-16 grid gap-6 rounded-md border border-luz/5 bg-tierra-mid p-8">
+          <div>
+            <div className="mb-3 text-xs uppercase tracking-wider opacity-50">
+              Example — you receive $200 USDC
+            </div>
+            <div className="flex h-3 gap-0.5 overflow-hidden rounded-[1px]">
+              <div className="bg-agua" style={{ flex: 70 }} />
+              <div className="bg-oro" style={{ flex: 30 }} />
+            </div>
+            <div className="mt-3 flex gap-8 text-sm">
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-agua" /> Spendable now
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-oro" /> Growing in the vault
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-stretch gap-8">
+            <div>
+              <div className="font-display text-3xl font-bold text-agua">$140</div>
+              <div className="mt-1 text-xs opacity-50">Cash out · anchor ramp</div>
+            </div>
+            <div className="w-px bg-luz/10" />
+            <div>
+              <div className="font-display text-3xl font-bold text-oro">$60</div>
+              <div className="mt-1 text-xs opacity-50">Growing ~ $3.60 / yr in yield</div>
+            </div>
+          </div>
+          <p className="border-t border-luz/5 pt-4 text-sm opacity-40">
+            You decide the percentage. Change it anytime from your dashboard.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="mt-auto flex flex-wrap items-center justify-between gap-4 border-t border-luz/5 px-6 py-10 md:px-10">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-agua" />
+          <span className="font-display text-lg font-bold text-luz">Raíz</span>
         </div>
-      </main>
-    </div>
+        <div className="text-xs uppercase tracking-wider text-agua/70">
+          ⬡ Built on Stellar · Soroban · DeFindex · Blend
+        </div>
+        <div className="text-xs opacity-30">PayFi · 2026</div>
+      </footer>
+    </>
   );
 }

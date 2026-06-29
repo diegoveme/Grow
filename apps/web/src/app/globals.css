@@ -1,26 +1,76 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Raíz design system — "your money takes root".
+ * Dark, earthy palette with water (agua) as the active accent and gold (oro)
+ * for yield. Exposed as Tailwind theme tokens so utilities like `bg-tierra`,
+ * `text-agua`, `text-oro`, `font-display` are generated automatically.
+ */
+@theme {
+  --color-tierra: #1c1a14;
+  --color-tierra-mid: #2e2a1e;
+  --color-semilla: #4a3f28;
+  --color-musgo: #2d4a2a;
+  --color-brote: #5c9e55;
+  --color-agua: #3ecad6;
+  --color-agua-palo: #7edee7;
+  --color-luz: #f7f0e0;
+  --color-luz-tenue: #ede5d0;
+  --color-oro: #c8a84b;
+
+  --font-display: var(--font-playfair), Georgia, serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+
+  --radius-sharp: 1px;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-tierra);
+  color: var(--color-luz);
+  font-family: var(--font-body);
+  font-weight: 300;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Floating particle drift used in the hero root illustration. */
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-14px);
+    opacity: 0.75;
+  }
+}
+
+.animate-drift {
+  animation: drift 4s ease-in-out infinite;
+}
+
+/* Subtle grow-in for sections. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: rise 0.6s ease-out both;
+}
+
+::selection {
+  background: var(--color-agua);
+  color: var(--color-tierra);
 }
