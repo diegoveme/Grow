@@ -1,4 +1,4 @@
-/** The signature Raíz 70/30 split visualization. */
+/** The signature Grow 70/30 split visualization. */
 export function SplitBar({
   spendableBps,
   className = "",

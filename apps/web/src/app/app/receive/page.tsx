@@ -106,7 +106,7 @@ export default function ReceivePage() {
         <Card className="mt-4">
           <CardLabel>Testnet faucet</CardLabel>
           <p className="mb-4 text-sm opacity-55">
-            Need funds to try Raíz? Get free testnet XLM from friendbot.
+            Need funds to try Grow? Get free testnet XLM from friendbot.
           </p>
           <Button variant="ghost" onClick={fund} disabled={funding} className="w-full sm:w-auto">
             {funding ? "Funding…" : "Fund testnet XLM"}

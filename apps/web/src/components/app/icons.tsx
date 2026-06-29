@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Minimal stroke icons (24x24) tuned for the Raíz sidebar. */
+/** Minimal stroke icons (24x24) tuned for the Grow sidebar. */
 const base = {
   width: 20,
   height: 20,

@@ -17,7 +17,7 @@ export function Sidebar() {
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-luz/5 bg-tierra-mid/40 px-4 py-6 md:flex">
       <Link href="/" className="mb-8 flex items-center gap-2 px-2">
         <span className="h-2.5 w-2.5 rounded-full bg-agua" />
-        <span className="font-display text-xl font-bold tracking-wide">Raíz</span>
+        <span className="font-display text-xl font-bold tracking-wide">Grow</span>
       </Link>
 
       <nav className="flex flex-1 flex-col gap-1">

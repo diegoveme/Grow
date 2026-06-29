@@ -13,7 +13,7 @@ export interface TxState {
 type Submitter = (signedXdr: string) => Promise<{ hash: string; status: string }>;
 
 /**
- * Runs the standard Raíz transaction lifecycle: ask the API to build an
+ * Runs the standard Grow transaction lifecycle: ask the API to build an
  * unsigned XDR, sign it with the connected wallet, then submit it. Classic
  * (XLM/USDC payments, trustlines) submit through Horizon; contract calls go
  * through the Soroban submitter. Surfaces loading/error/hash for the UI.

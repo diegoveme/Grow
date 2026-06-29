@@ -11,7 +11,7 @@ export interface AssetMeta {
   accent: Accent;
 }
 
-/** Single source of truth for the assets Raíz handles in the UI. */
+/** Single source of truth for the assets Grow handles in the UI. */
 export const ASSETS: Record<AssetCode, AssetMeta> = {
   USDC: { code: "USDC", label: "USDC", accent: "oro" },
   XLM: { code: "XLM", label: "XLM", accent: "agua" },

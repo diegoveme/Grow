@@ -5,7 +5,7 @@ export function SiteNav() {
     <nav className="fixed inset-x-0 top-0 z-50 flex items-center justify-between bg-gradient-to-b from-tierra via-tierra/90 to-transparent px-6 py-5 md:px-10">
       <Link href="/" className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full bg-agua" />
-        <span className="font-display text-xl font-bold tracking-wide text-luz">Raíz</span>
+        <span className="font-display text-xl font-bold tracking-wide text-luz">Grow</span>
       </Link>
       <div className="flex items-center gap-5">
         <Link

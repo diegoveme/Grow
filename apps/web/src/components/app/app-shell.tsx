@@ -26,7 +26,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-luz/5 bg-tierra/80 px-5 py-3.5 backdrop-blur md:px-8">
           <Link href="/" className="flex items-center gap-2 md:hidden">
             <span className="h-2 w-2 rounded-full bg-agua" />
-            <span className="font-display text-lg font-bold tracking-wide">Raíz</span>
+            <span className="font-display text-lg font-bold tracking-wide">Grow</span>
           </Link>
           <Link
             href="/"
