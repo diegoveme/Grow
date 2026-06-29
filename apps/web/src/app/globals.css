@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
- * Raíz design system — "your money takes root".
+ * Raíz design system. "Your money takes root".
  * Dark, earthy palette with water (agua) as the active accent and gold (oro)
  * for yield. Exposed as Tailwind theme tokens so utilities like `bg-tierra`,
  * `text-agua`, `text-oro`, `font-display` are generated automatically.

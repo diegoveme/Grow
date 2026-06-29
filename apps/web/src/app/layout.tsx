@@ -17,7 +17,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Raíz — Your money arrives, and takes root",
+  title: "Raíz · Your money arrives, and takes root",
   description:
     "Remittances on Stellar that pay you back. Receive USDC instantly and let a part of it grow on its own, earning yield through DeFindex and Blend.",
 };

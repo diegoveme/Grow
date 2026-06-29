@@ -1,5 +1,5 @@
 /**
- * The "root system" illustration behind the hero — a river of money branching
+ * The "root system" illustration behind the hero: a river of money branching
  * into spendable (agua) and growing (oro) roots, with drifting particles.
  * Pure SVG, no interactivity.
  */
@@ -28,7 +28,7 @@ export function RootBg() {
       <ellipse cx="600" cy="400" rx="500" ry="300" fill="url(#glow-agua)" opacity="0.6" />
       <ellipse cx="800" cy="550" rx="300" ry="200" fill="url(#glow-brote)" opacity="0.5" />
 
-      {/* main trunk — the river of money */}
+      {/* main trunk: the river of money */}
       <path
         d="M 600 -10 C 600 100, 600 200, 600 380"
         stroke="#3ECAD6"
@@ -72,7 +72,7 @@ export function RootBg() {
         filter="url(#blur-soft)"
       />
 
-      {/* split node — the heart */}
+      {/* split node: the heart */}
       <circle cx="600" cy="380" r="5" fill="#3ECAD6" opacity="0.35" />
       <circle cx="600" cy="380" r="12" fill="none" stroke="#3ECAD6" strokeWidth="0.8" opacity="0.15" />
       <circle cx="600" cy="380" r="22" fill="none" stroke="#3ECAD6" strokeWidth="0.5" opacity="0.08" />

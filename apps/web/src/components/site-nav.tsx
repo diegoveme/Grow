@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { ConnectButton } from "./connect-button";
 
 export function SiteNav() {
   return (
@@ -8,7 +7,7 @@ export function SiteNav() {
         <span className="h-2 w-2 rounded-full bg-agua" />
         <span className="font-display text-xl font-bold tracking-wide text-luz">Raíz</span>
       </Link>
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-5">
         <Link
           href="/#how"
           className="hidden text-sm tracking-wide text-luz-tenue/70 transition-colors hover:text-agua sm:block"
@@ -17,11 +16,10 @@ export function SiteNav() {
         </Link>
         <Link
           href="/app"
-          className="hidden text-sm tracking-wide text-luz-tenue/70 transition-colors hover:text-agua sm:block"
+          className="rounded-[2px] bg-agua px-5 py-2 text-sm font-medium uppercase tracking-wide text-tierra transition-colors hover:bg-agua-palo"
         >
-          Dashboard
+          Open app
         </Link>
-        <ConnectButton />
       </div>
     </nav>
   );

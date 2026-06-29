@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SiteNav } from "@/components/site-nav";
 import { RootBg } from "@/components/root-bg";
+import { CursorMolecules } from "@/components/cursor-molecules";
 
 const stats = [
   { num: "$860B", label: "Global remittances / yr" },
@@ -31,7 +32,7 @@ const steps = [
   {
     icon: "🌾",
     title: "The root earns yield",
-    desc: "The savings portion enters a DeFindex vault routing into Blend. It earns APY in USDC — withdraw anytime, even as cash.",
+    desc: "The savings portion enters a DeFindex vault routing into Blend. It earns APY in USDC, and you can withdraw anytime, even as cash.",
     tag: "DeFindex · Blend",
   },
 ];
@@ -44,6 +45,7 @@ export default function Home() {
       {/* HERO */}
       <section className="relative grid min-h-screen place-items-center overflow-hidden px-6 pb-16 pt-28">
         <RootBg />
+        <CursorMolecules />
         <div className="relative z-10 mx-auto max-w-3xl text-center animate-rise">
           <div className="mb-6 flex items-center justify-center gap-3 text-xs uppercase tracking-[0.18em] text-agua">
             <span className="h-px w-8 bg-agua/40" />
@@ -56,7 +58,7 @@ export default function Home() {
             and <em className="italic text-agua">takes root.</em>
           </h1>
           <p className="mx-auto mt-6 max-w-md text-luz-tenue/75">
-            Send across borders. Your family receives it instantly — and a part grows on its
+            Send across borders. Your family receives it instantly, and a part grows on its
             own, earning yield while they live.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
@@ -120,7 +122,7 @@ export default function Home() {
         <div className="mt-16 grid gap-6 rounded-md border border-luz/5 bg-tierra-mid p-8">
           <div>
             <div className="mb-3 text-xs uppercase tracking-wider opacity-50">
-              Example — you receive $200 USDC
+              Example · you receive $200 USDC
             </div>
             <div className="flex h-3 gap-0.5 overflow-hidden rounded-[1px]">
               <div className="bg-agua" style={{ flex: 70 }} />

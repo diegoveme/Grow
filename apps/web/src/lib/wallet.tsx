@@ -54,7 +54,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         const { address } = await kit.getAddress();
         if (address) setAddress(address);
       } catch {
-        /* no wallet connected yet — ignore */
+        /* no wallet connected yet, ignore */
       }
     })();
   }, [ensureInit]);
