@@ -1,0 +1,62 @@
+# ─────────────────────────────────────────────────────────────
+# Dependencies
+# ─────────────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+
+# ─────────────────────────────────────────────────────────────
+# Build outputs
+# ─────────────────────────────────────────────────────────────
+dist/
+build/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Rust / Soroban
+target/
+**/target/
+*.wasm
+
+# ─────────────────────────────────────────────────────────────
+# Environment & secrets
+# ─────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+.soroban/
+identity/
+
+# ─────────────────────────────────────────────────────────────
+# Editor / OS
+# ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.log
+
+# ─────────────────────────────────────────────────────────────
+# AI assistant artifacts — never tracked
+# ─────────────────────────────────────────────────────────────
+.claude/
+.cursor/
+.aider*
+CLAUDE.md
+AGENTS.md
+ai-notes/
+scratchpad/
+
+# ─────────────────────────────────────────────────────────────
+# Planning / reference docs (kept local, out of the repo)
+# ─────────────────────────────────────────────────────────────
+GuiaPoryecto.jpg
+MiniContexto.md
+raiz concept.html
+docs/_private/

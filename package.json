@@ -1,0 +1,29 @@
+{
+  "name": "raiz",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Raíz — PayFi remittances on Stellar with automatic yield (Blend + DeFindex)",
+  "license": "MIT",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
+  "scripts": {
+    "web": "bun --filter @raiz/web dev",
+    "api": "bun --filter @raiz/api start:dev",
+    "dev": "bun --filter '@raiz/*' dev",
+    "build": "bun --filter '*' build",
+    "lint": "bun --filter '*' lint",
+    "typecheck": "bun --filter '*' typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "contracts:build": "bun --filter @raiz/contracts build",
+    "contracts:test": "bun --filter @raiz/contracts test"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "^5.5.4"
+  }
+}
