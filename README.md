@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🌱 Raíz
+# 🌱 Grow
 
 ### Remittances on Stellar that pay you back.
 
@@ -27,7 +27,7 @@ for granted.
 
 ## The solution
 
-**Raíz** is a remittance dApp on Stellar. A family receives **USDC** instantly, and a
+**Grow** is a remittance dApp on Stellar. A family receives **USDC** instantly, and a
 **configurable fraction** automatically flows into a yield vault
 ([DeFindex](https://docs.defindex.io/) → [Blend](https://docs.blend.capital/)),
 earning APY — while the rest stays instantly spendable and cash-out-ready through a
@@ -85,7 +85,7 @@ The split ratio is chosen by each recipient and can change anytime.
 ## Monorepo
 
 ```
-raiz/
+raíz/
 ├── apps/
 │   ├── web/          Next.js — landing + dApp dashboard
 │   └── api/          NestJS — anchor, splits, vault, persistence
