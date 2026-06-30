@@ -1,4 +1,9 @@
-import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { toStroops, type VaultPosition } from '@raiz/shared';
 import type { AppConfig } from '../config/configuration';
@@ -64,8 +69,15 @@ export class VaultService {
     if (contracts.defindexVault && apiKey) {
       try {
         const sdk = await this.defindex();
-        const apy = await sdk.getVaultAPY(contracts.defindexVault, await this.defindexNetwork());
-        return { apy: Number(apy), source: 'defindex' };
+        // getVaultAPY returns { apy: number }; tolerate a bare number too.
+        const res = (await sdk.getVaultAPY(
+          contracts.defindexVault,
+          await this.defindexNetwork(),
+        )) as { apy?: number } | number;
+        const raw = typeof res === 'number' ? res : Number(res?.apy ?? 0);
+        // Normalize percent (e.g. 6.2) to a fraction (0.062) for the UI.
+        const apy = raw > 1 ? raw / 100 : raw;
+        return { apy, source: 'defindex' };
       } catch (err) {
         this.logger.warn(`DeFindex APY failed, falling back to Blend: ${String(err)}`);
       }
@@ -104,12 +116,16 @@ export class VaultService {
       throw new ServiceUnavailableException('DEFINDEX_VAULT_ADDRESS is not configured.');
     }
     const sdk = await this.defindex();
-    const res = await sdk.depositToVault(
-      contracts.defindexVault,
-      { amounts: [Number(toStroops(amount))], caller, invest: true, slippageBps: 100 },
-      await this.defindexNetwork(),
-    );
-    return this.extractXdr(res);
+    try {
+      const res = await sdk.depositToVault(
+        contracts.defindexVault,
+        { amounts: [Number(toStroops(amount))], caller, invest: true, slippageBps: 100 },
+        await this.defindexNetwork(),
+      );
+      return this.extractXdr(res);
+    } catch (err) {
+      throw this.vaultError(err, 'deposit');
+    }
   }
 
   /** Build an unsigned DeFindex withdraw transaction (XDR). */
@@ -119,12 +135,32 @@ export class VaultService {
       throw new ServiceUnavailableException('DEFINDEX_VAULT_ADDRESS is not configured.');
     }
     const sdk = await this.defindex();
-    const res = await sdk.withdrawShares(
-      contracts.defindexVault,
-      { shares: Number(toStroops(shares)), caller, slippageBps: 100 },
-      await this.defindexNetwork(),
-    );
-    return this.extractXdr(res);
+    try {
+      const res = await sdk.withdrawShares(
+        contracts.defindexVault,
+        { shares: Number(toStroops(shares)), caller, slippageBps: 100 },
+        await this.defindexNetwork(),
+      );
+      return this.extractXdr(res);
+    } catch (err) {
+      throw this.vaultError(err, 'withdraw');
+    }
+  }
+
+  /** Turn raw DeFindex SDK/simulation errors into clear, user-facing messages. */
+  private vaultError(err: unknown, action: 'deposit' | 'withdraw'): never {
+    const msg = String((err as Error)?.message ?? err);
+    const net = this.cfg().network === 'PUBLIC' ? 'mainnet' : 'testnet';
+    if (/missing value|non-existing|MissingValue/i.test(msg)) {
+      throw new BadRequestException(
+        `This DeFindex vault isn't deployed on ${net}. Vaults run on mainnet — set a ${net} ` +
+          `vault in DEFINDEX_VAULT_ADDRESS, or move the app to PUBLIC to use it.`,
+      );
+    }
+    if (/InsufficientBalance|underfunded/i.test(msg)) {
+      throw new BadRequestException(`Not enough USDC in your wallet to ${action}.`);
+    }
+    throw new BadRequestException(`Vault ${action} failed: ${msg.slice(0, 180)}`);
   }
 
   private async defindex() {
