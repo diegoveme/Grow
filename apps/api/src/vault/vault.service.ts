@@ -5,7 +5,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { toStroops, type VaultPosition } from '@raiz/shared';
+import { fromStroops, toStroops, type VaultPosition } from '@raiz/shared';
 import type { AppConfig } from '../config/configuration';
 
 /**
@@ -99,7 +99,9 @@ export class VaultService {
     )) as unknown as Record<string, unknown>;
     const { apy } = await this.getApy();
     const ub = balance.underlyingBalance ?? balance.totalBalance ?? balance.balance;
-    const current = String(Array.isArray(ub) ? ub[0] ?? 0 : ub ?? 0);
+    // DeFindex returns the balance in stroops (7 decimals) → to display units.
+    const raw = String(Array.isArray(ub) ? ub[0] ?? 0 : ub ?? 0).split('.')[0] || '0';
+    const current = fromStroops(BigInt(raw));
     return {
       vaultAddress: contracts.defindexVault,
       principal: current,
