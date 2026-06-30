@@ -113,6 +113,16 @@ export const api = {
   // ── Vault / yield ───────────────────────────────────────────────────────
   vaultApy: () => request<{ apy: number; source: string }>("/vault/apy"),
   vaultPosition: (address: string) => request<VaultPosition>(`/vault/position/${address}`),
+  buildVaultDeposit: (caller: string, amount: string) =>
+    request<{ xdr: string }>("/vault/deposit/build", {
+      method: "POST",
+      body: JSON.stringify({ caller, amount }),
+    }),
+  buildVaultWithdraw: (caller: string, amount: string) =>
+    request<{ xdr: string }>("/vault/withdraw/build", {
+      method: "POST",
+      body: JSON.stringify({ caller, amount }),
+    }),
 
   // ── Remittances (DB) ────────────────────────────────────────────────────
   remittances: (address?: string) =>

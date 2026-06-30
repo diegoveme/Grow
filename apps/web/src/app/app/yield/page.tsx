@@ -1,13 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PageHeader } from "@/components/app/page-header";
 import { SplitBar } from "@/components/app/split-bar";
 import { Card, CardLabel, Stat } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Field, TextInput } from "@/components/ui/field";
+import { ExternalIcon } from "@/components/app/icons";
 import { useWallet } from "@/lib/wallet";
 import { useApy, useRatio } from "@/lib/hooks";
+import { useTx } from "@/lib/use-tx";
 import { api } from "@/lib/api";
 import type { VaultPosition } from "@raiz/shared";
+import { explorerTx } from "@/lib/config";
 import { formatApy, formatUsd } from "@/lib/format";
 
 export default function YieldPage() {
@@ -17,13 +22,15 @@ export default function YieldPage() {
   const [position, setPosition] = useState<VaultPosition | null>(null);
   const live = apy !== null;
 
-  useEffect(() => {
+  const refreshPosition = useCallback(() => {
     if (!address) return;
     api
       .vaultPosition(address)
       .then(setPosition)
       .catch(() => setPosition(null));
   }, [address]);
+
+  useEffect(() => refreshPosition(), [refreshPosition]);
 
   if (!address) return null;
 
@@ -58,6 +65,8 @@ export default function YieldPage() {
           />
         </Card>
       </div>
+
+      {live && <VaultManage address={address} onDone={refreshPosition} />}
 
       <Card className="mt-4">
         <CardLabel>Your split</CardLabel>
@@ -95,5 +104,85 @@ export default function YieldPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Deposit into / withdraw from the DeFindex vault (which supplies into Blend). */
+function VaultManage({ address, onDone }: { address: string; onDone: () => void }) {
+  const tx = useTx();
+  const [mode, setMode] = useState<"deposit" | "withdraw">("deposit");
+  const [amount, setAmount] = useState("");
+  const valid = Number(amount) > 0;
+
+  async function run() {
+    if (!valid) return;
+    const hash = await tx.run(
+      () =>
+        mode === "deposit"
+          ? api.buildVaultDeposit(address, amount)
+          : api.buildVaultWithdraw(address, amount),
+      api.submitSoroban,
+    );
+    if (hash) {
+      setAmount("");
+      setTimeout(onDone, 1500);
+    }
+  }
+
+  return (
+    <Card className="mt-4">
+      <CardLabel>Manage your vault</CardLabel>
+
+      <div className="mb-4 grid grid-cols-2 gap-2">
+        {(["deposit", "withdraw"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => setMode(m)}
+            className={`rounded-[2px] border px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
+              mode === m
+                ? "border-oro bg-oro/10 text-oro"
+                : "border-luz/10 text-luz-tenue/60 hover:border-luz/25"
+            }`}
+          >
+            {m}
+          </button>
+        ))}
+      </div>
+
+      <Field label={`Amount to ${mode} (USDC)`}>
+        <TextInput
+          value={amount}
+          onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
+          placeholder="0.00"
+          inputMode="decimal"
+        />
+      </Field>
+
+      <Button variant="gold" onClick={run} disabled={!valid || tx.loading} className="mt-5 w-full">
+        {tx.loading
+          ? "Submitting…"
+          : mode === "deposit"
+            ? "Deposit to vault"
+            : "Withdraw from vault"}
+      </Button>
+
+      {tx.error && <p className="mt-3 text-center text-xs text-oro">{tx.error}</p>}
+      {tx.hash && (
+        <a
+          href={explorerTx(tx.hash)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-brote hover:underline"
+        >
+          {mode === "deposit" ? "Deposited" : "Withdrawn"} · view transaction{" "}
+          <ExternalIcon width={13} height={13} />
+        </a>
+      )}
+
+      <p className="mt-3 text-center text-xs opacity-40">
+        Deposits supply into the Blend pool via DeFindex. You need USDC in your wallet.
+      </p>
+    </Card>
   );
 }
