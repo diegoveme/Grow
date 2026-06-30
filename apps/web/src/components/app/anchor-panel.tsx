@@ -4,10 +4,45 @@ import { useState } from "react";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { config } from "@/lib/config";
 import { useWallet } from "@/lib/wallet";
 
 type Status = "idle" | "authenticating" | "interactive" | "polling" | "done" | "error";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Validate a SEP-10 challenge before the wallet signs it — never sign a server
+ * transaction blindly. Asserts it is a real auth challenge: right network, the
+ * anchor's signing key as source, sequence 0, and a `<home_domain> auth`
+ * manage_data op whose source is this user. Throws if anything is off.
+ */
+async function assertValidChallenge(xdr: string, networkPassphrase: string, account: string) {
+  if (networkPassphrase !== config.networkPassphrase) {
+    throw new Error("Anchor challenge is for the wrong network.");
+  }
+  const info = await api.anchorInfo();
+  const { TransactionBuilder } = await import("@stellar/stellar-sdk");
+  const tx = TransactionBuilder.fromXDR(xdr, networkPassphrase) as {
+    source: string;
+    sequence: string;
+    timeBounds?: unknown;
+    operations: { type: string; source?: string; name?: string }[];
+  };
+  if (info.signingKey && tx.source !== info.signingKey) {
+    throw new Error("Challenge is not from the anchor's signing key.");
+  }
+  if (tx.sequence !== "0") throw new Error("Challenge sequence must be 0.");
+  if (!tx.timeBounds) throw new Error("Challenge has no time bounds.");
+  const first = tx.operations[0];
+  if (
+    !first ||
+    first.type !== "manageData" ||
+    first.source !== account ||
+    first.name !== `${info.homeDomain} auth`
+  ) {
+    throw new Error("Not a valid SEP-10 auth challenge.");
+  }
+}
 
 /**
  * SEP-10 (auth) + SEP-24 (interactive deposit/withdraw) against the testnet
@@ -27,8 +62,9 @@ export function AnchorPanel() {
     setStatus("authenticating");
     setMessage("Authenticating with the anchor (SEP-10)…");
     try {
-      // SEP-10: sign the challenge with the wallet, exchange for a JWT.
-      const { transaction } = await api.anchorChallenge(address);
+      // SEP-10: validate the challenge, sign it, exchange for a JWT.
+      const { transaction, networkPassphrase } = await api.anchorChallenge(address);
+      await assertValidChallenge(transaction, networkPassphrase, address);
       const signed = await signTransaction(transaction);
       const { token } = await api.anchorToken(signed);
 
@@ -36,10 +72,12 @@ export function AnchorPanel() {
       setStatus("interactive");
       setMessage("Opening the anchor…");
       const { url, id } = await api.anchorInteractive(kind, token, address, asset);
-      const popup = window.open(url, "anchor", "width=480,height=720");
-      if (!popup) {
-        setMessage("Allow popups, or open the anchor here.");
+      if (new URL(url).protocol !== "https:") {
+        throw new Error("Anchor returned a non-https URL.");
       }
+      const popup = window.open(url, "anchor", "width=480,height=720");
+      if (popup) popup.opener = null; // break the opener ref (anti-tabnabbing)
+      else setMessage("Allow popups to continue with the anchor.");
 
       // Poll until the anchor transaction settles.
       setStatus("polling");

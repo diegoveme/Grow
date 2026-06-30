@@ -140,9 +140,14 @@ export const api = {
 
   // ── Anchor (SEP-10 + SEP-24) ────────────────────────────────────────────
   anchorInfo: () =>
-    request<{ homeDomain: string; testAsset: string; currencies: { code?: string }[] }>(
-      "/anchor/info",
-    ),
+    request<{
+      homeDomain: string;
+      testAsset: string;
+      webAuth: string;
+      transferServer: string;
+      signingKey?: string;
+      currencies: { code?: string }[];
+    }>("/anchor/info"),
   anchorChallenge: (account: string) =>
     request<{ transaction: string; networkPassphrase: string }>("/anchor/sep10/challenge", {
       method: "POST",
