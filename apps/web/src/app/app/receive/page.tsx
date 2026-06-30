@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { PageHeader } from "@/components/app/page-header";
+import { AnchorPanel } from "@/components/app/anchor-panel";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CopyIcon, CheckIcon } from "@/components/app/icons";
@@ -100,6 +101,11 @@ export default function ReceivePage() {
           </>
         )}
       </Card>
+
+      {/* Cash in / out via a Stellar anchor (SEP-24) */}
+      <div className="mt-4">
+        <AnchorPanel />
+      </div>
 
       {/* Testnet faucet */}
       {isTestnet && (

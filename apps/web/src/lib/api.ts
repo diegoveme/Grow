@@ -138,9 +138,35 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  // ── Anchor (SEP-24) ─────────────────────────────────────────────────────
+  // ── Anchor (SEP-10 + SEP-24) ────────────────────────────────────────────
   anchorInfo: () =>
     request<{ homeDomain: string; testAsset: string; currencies: { code?: string }[] }>(
       "/anchor/info",
+    ),
+  anchorChallenge: (account: string) =>
+    request<{ transaction: string; networkPassphrase: string }>("/anchor/sep10/challenge", {
+      method: "POST",
+      body: JSON.stringify({ account }),
+    }),
+  anchorToken: (signedXdr: string) =>
+    request<{ token: string }>("/anchor/sep10/token", {
+      method: "POST",
+      body: JSON.stringify({ signedXdr }),
+    }),
+  anchorInteractive: (
+    kind: "deposit" | "withdraw",
+    jwt: string,
+    account: string,
+    assetCode: string,
+  ) =>
+    request<{ url: string; id: string; type: string }>(`/anchor/sep24/${kind}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${jwt}` },
+      body: JSON.stringify({ account, assetCode }),
+    }),
+  anchorTransaction: (jwt: string, id: string) =>
+    request<{ transaction: Record<string, unknown> }>(
+      `/anchor/sep24/transaction?id=${encodeURIComponent(id)}`,
+      { headers: { Authorization: `Bearer ${jwt}` } },
     ),
 };
