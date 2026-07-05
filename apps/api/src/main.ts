@@ -22,9 +22,11 @@ async function bootstrap() {
     .build();
   SwaggerModule.setup('api/docs', app, SwaggerModule.createDocument(app, swagger));
 
-  const port = Number(process.env.API_PORT ?? 3001);
-  await app.listen(port);
+  // Railway/Render inject PORT and require the app to bind to it; fall back to
+  // API_PORT for local dev.
+  const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
+  await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`🌱 Raíz API listening on http://localhost:${port}/api`);
+  console.log(`🌱 Raíz API listening on port ${port} (/api)`);
 }
 bootstrap();
