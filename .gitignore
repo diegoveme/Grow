@@ -67,3 +67,6 @@ MiniContexto.md
 raiz concept.html
 docs/_private/
 TODO.md
+
+.vercel
+.env*
