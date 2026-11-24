@@ -1,20 +1,20 @@
 #![no_std]
-//! # Raíz — `yield_splitter`
+//! # Grow: `yield_splitter`
 //!
-//! The on-chain heart of Raíz. When a remittance in USDC arrives for a
-//! recipient, this contract splits it according to the recipient's configured
-//! ratio: a spendable portion they can withdraw at any time (cash-out via the
-//! anchor), and a vault portion earmarked to earn yield (deposited into a
-//! DeFindex vault that routes into a Blend lending pool).
+//! The on-chain heart of Grow. When a USDC remittance arrives for a recipient,
+//! this contract splits it according to the recipient's configured ratio:
 //!
-//! The contract keeps the accounting and custody of the spendable + vault
-//! balances and emits the events the rest of the system reacts to. The actual
-//! DeFindex deposit is performed by the backend via the DeFindex SDK against
-//! the `vault_balance` this contract tracks; `claim_yield` records the yield
-//! that flows back.
+//! - the **spendable** portion is transferred straight to the recipient's
+//!   wallet, so it is usable (and cash-out ready) immediately;
+//! - the **savings** portion is held by this contract on the recipient's
+//!   behalf. Only the recipient can withdraw it, at any time.
 //!
-//! Storage: `wallet_balance` · `vault_balance` · `ratio` · `earned_yield`
-//! Events:  `received` · `vault_dep` · `yield_clm`
+//! The contract never moves a recipient's savings anywhere except back to that
+//! recipient. Routing savings into a yield vault (DeFindex, Blend) is done from
+//! the recipient's own wallet, outside this contract.
+//!
+//! Storage: `ratio (split)` · `savings`
+//! Events:  `SplitSet` · `FundsReceived` · `SavingsWithdrawn`
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error, token,
@@ -23,7 +23,7 @@ use soroban_sdk::{
 
 /// 100% expressed in basis points.
 const BPS_DENOMINATOR: u32 = 10_000;
-/// Default split when a recipient has not chosen one: 70% spendable / 30% vault.
+/// Default split when a recipient has not chosen one: 70% spendable / 30% savings.
 const DEFAULT_SPENDABLE_BPS: u32 = 7_000;
 
 #[contracterror]
@@ -34,9 +34,7 @@ pub enum Error {
     NotInitialized = 2,
     InvalidSplit = 3,
     InvalidAmount = 4,
-    InsufficientSpendable = 5,
-    InsufficientVault = 6,
-    NotAuthorized = 7,
+    InsufficientSavings = 5,
 }
 
 #[derive(Clone)]
@@ -45,31 +43,23 @@ pub enum DataKey {
     Admin,
     /// USDC token contract address used for transfers.
     Token,
-    /// Optional external vault (DeFindex) address the backend deposits into.
-    Vault,
     /// Per-recipient spendable ratio in basis points.
     Split(Address),
-    /// Per-recipient spendable (withdrawable) balance held by this contract.
-    WalletBalance(Address),
-    /// Per-recipient amount earmarked for / held in the vault.
-    VaultBalance(Address),
-    /// Per-recipient yield accrued from the vault and claimable.
-    EarnedYield(Address),
+    /// Per-recipient savings held by this contract.
+    Savings(Address),
 }
 
-/// A recipient's full position, returned by `position`.
+/// A recipient's position, returned by `position`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[contracttype]
 pub struct Position {
     pub spendable_bps: u32,
-    pub wallet_balance: i128,
-    pub vault_balance: i128,
-    pub earned_yield: i128,
+    pub savings: i128,
 }
 
 // ── Events ────────────────────────────────────────────────────────────────
 
-/// A recipient chose (or changed) their spendable/vault ratio.
+/// A recipient chose (or changed) their spendable/savings ratio.
 #[contractevent]
 #[derive(Clone)]
 pub struct SplitSet {
@@ -87,26 +77,17 @@ pub struct FundsReceived {
     pub from: Address,
     pub amount: i128,
     pub spendable: i128,
-    pub vault: i128,
+    pub savings: i128,
 }
 
-/// A recipient's vault portion was deposited toward the yield vault.
+/// A recipient withdrew part or all of their savings.
 #[contractevent]
 #[derive(Clone)]
-pub struct VaultDeposited {
+pub struct SavingsWithdrawn {
     #[topic]
     pub to: Address,
     pub amount: i128,
-}
-
-/// Yield earned by a recipient's vault position was recorded as claimable.
-#[contractevent]
-#[derive(Clone)]
-pub struct YieldClaimed {
-    #[topic]
-    pub to: Address,
-    pub amount: i128,
-    pub total: i128,
+    pub remaining: i128,
 }
 
 #[contract]
@@ -124,14 +105,8 @@ impl YieldSplitter {
         env.storage().instance().set(&DataKey::Token, &token);
     }
 
-    /// Set the external vault (DeFindex) address. Admin only.
-    pub fn set_vault(env: Env, vault: Address) {
-        Self::admin(&env).require_auth();
-        env.storage().instance().set(&DataKey::Vault, &vault);
-    }
-
     /// Choose the spendable ratio (in basis points) for the caller.
-    /// `spendable_bps` must be between 0 and 10_000; the remainder goes to the vault.
+    /// `spendable_bps` must be between 0 and 10_000; the remainder is saved.
     pub fn set_split(env: Env, user: Address, spendable_bps: u32) {
         user.require_auth();
         if spendable_bps > BPS_DENOMINATOR {
@@ -155,153 +130,85 @@ impl YieldSplitter {
             .unwrap_or(DEFAULT_SPENDABLE_BPS)
     }
 
-    /// Receive `amount` of USDC from `from` on behalf of recipient `to`, then
-    /// split it per `to`'s ratio. The spendable portion becomes withdrawable;
-    /// the vault portion is earmarked and (if a vault is configured) deposited.
+    /// Send `amount` of USDC from `from` to recipient `to`, split per `to`'s
+    /// ratio: the spendable part goes straight to `to`'s wallet and the savings
+    /// part is held here on `to`'s behalf.
     ///
-    /// Returns `(spendable, vault)` amounts.
+    /// Returns `(spendable, savings)` amounts.
     pub fn receive(env: Env, from: Address, to: Address, amount: i128) -> (i128, i128) {
         from.require_auth();
         if amount <= 0 {
             panic_with_error!(&env, Error::InvalidAmount);
         }
 
-        // Pull the USDC into the contract's custody.
-        let token = Self::token(&env);
-        token::Client::new(&env, &token).transfer(
-            &from,
-            &env.current_contract_address(),
-            &amount,
-        );
-
-        // Split per the recipient's configured ratio.
         let spendable_bps = Self::get_split(env.clone(), to.clone());
         let spendable = amount * i128::from(spendable_bps) / i128::from(BPS_DENOMINATOR);
-        let vault = amount - spendable;
+        let savings = amount - spendable;
 
-        Self::add_wallet_balance(&env, &to, spendable);
-        Self::add_vault_balance(&env, &to, vault);
+        let token = token::Client::new(&env, &Self::token(&env));
+        if spendable > 0 {
+            token.transfer(&from, &to, &spendable);
+        }
+        if savings > 0 {
+            token.transfer(&from, &env.current_contract_address(), &savings);
+            Self::add_savings(&env, &to, savings);
+        }
 
         FundsReceived {
-            to: to.clone(),
+            to,
             from,
             amount,
             spendable,
-            vault,
+            savings,
         }
         .publish(&env);
 
-        (spendable, vault)
+        (spendable, savings)
     }
 
-    /// Move the recipient's earmarked vault balance into the configured DeFindex
-    /// vault. The token transfer to the vault is done here; share accounting and
-    /// strategy investment happen in the vault contract. Returns the amount moved.
-    pub fn deposit_vault(env: Env, to: Address) -> i128 {
-        let amount = Self::vault_balance(env.clone(), to.clone());
-        if amount <= 0 {
-            panic_with_error!(&env, Error::InsufficientVault);
-        }
-
-        // If an external vault is wired, transfer the funds to it. Otherwise the
-        // contract keeps custody and the backend orchestrates the DeFindex SDK
-        // deposit against this tracked balance.
-        if let Some(vault) = Self::vault(&env) {
-            let token = Self::token(&env);
-            token::Client::new(&env, &token).transfer(
-                &env.current_contract_address(),
-                &vault,
-                &amount,
-            );
-        }
-
-        VaultDeposited {
-            to: to.clone(),
-            amount,
-        }
-        .publish(&env);
-        amount
-    }
-
-    /// Record `yield_amount` of yield earned by `to`'s vault position as
-    /// claimable. Admin only (the backend reconciles vault growth on-chain).
-    pub fn claim_yield(env: Env, to: Address, yield_amount: i128) -> i128 {
-        Self::admin(&env).require_auth();
-        if yield_amount <= 0 {
-            panic_with_error!(&env, Error::InvalidAmount);
-        }
-        let key = DataKey::EarnedYield(to.clone());
-        let current: i128 = env.storage().persistent().get(&key).unwrap_or(0);
-        let updated = current + yield_amount;
-        env.storage().persistent().set(&key, &updated);
-        YieldClaimed {
-            to,
-            amount: yield_amount,
-            total: updated,
-        }
-        .publish(&env);
-        updated
-    }
-
-    /// Withdraw `amount` of the caller's spendable USDC balance to their wallet.
-    pub fn withdraw(env: Env, to: Address, amount: i128) {
+    /// Withdraw `amount` of the caller's savings back to their wallet.
+    /// Returns the savings left after the withdrawal.
+    pub fn withdraw_savings(env: Env, to: Address, amount: i128) -> i128 {
         to.require_auth();
         if amount <= 0 {
             panic_with_error!(&env, Error::InvalidAmount);
         }
-        let balance = Self::wallet_balance(env.clone(), to.clone());
+        let balance = Self::savings(env.clone(), to.clone());
         if amount > balance {
-            panic_with_error!(&env, Error::InsufficientSpendable);
+            panic_with_error!(&env, Error::InsufficientSavings);
         }
-        Self::add_wallet_balance(&env, &to, -amount);
-        let token = Self::token(&env);
-        token::Client::new(&env, &token).transfer(
+        let remaining = Self::add_savings(&env, &to, -amount);
+        token::Client::new(&env, &Self::token(&env)).transfer(
             &env.current_contract_address(),
             &to,
             &amount,
         );
+        SavingsWithdrawn {
+            to,
+            amount,
+            remaining,
+        }
+        .publish(&env);
+        remaining
     }
 
     // ── Views ───────────────────────────────────────────────────────────────
 
-    pub fn wallet_balance(env: Env, user: Address) -> i128 {
+    pub fn savings(env: Env, user: Address) -> i128 {
         env.storage()
             .persistent()
-            .get(&DataKey::WalletBalance(user))
-            .unwrap_or(0)
-    }
-
-    pub fn vault_balance(env: Env, user: Address) -> i128 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::VaultBalance(user))
-            .unwrap_or(0)
-    }
-
-    pub fn earned_yield(env: Env, user: Address) -> i128 {
-        env.storage()
-            .persistent()
-            .get(&DataKey::EarnedYield(user))
+            .get(&DataKey::Savings(user))
             .unwrap_or(0)
     }
 
     pub fn position(env: Env, user: Address) -> Position {
         Position {
             spendable_bps: Self::get_split(env.clone(), user.clone()),
-            wallet_balance: Self::wallet_balance(env.clone(), user.clone()),
-            vault_balance: Self::vault_balance(env.clone(), user.clone()),
-            earned_yield: Self::earned_yield(env, user),
+            savings: Self::savings(env, user),
         }
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────
-
-    fn admin(env: &Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized))
-    }
 
     fn token(env: &Env) -> Address {
         env.storage()
@@ -310,20 +217,12 @@ impl YieldSplitter {
             .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized))
     }
 
-    fn vault(env: &Env) -> Option<Address> {
-        env.storage().instance().get(&DataKey::Vault)
-    }
-
-    fn add_wallet_balance(env: &Env, user: &Address, delta: i128) {
-        let key = DataKey::WalletBalance(user.clone());
+    fn add_savings(env: &Env, user: &Address, delta: i128) -> i128 {
+        let key = DataKey::Savings(user.clone());
         let current: i128 = env.storage().persistent().get(&key).unwrap_or(0);
-        env.storage().persistent().set(&key, &(current + delta));
-    }
-
-    fn add_vault_balance(env: &Env, user: &Address, delta: i128) {
-        let key = DataKey::VaultBalance(user.clone());
-        let current: i128 = env.storage().persistent().get(&key).unwrap_or(0);
-        env.storage().persistent().set(&key, &(current + delta));
+        let updated = current + delta;
+        env.storage().persistent().set(&key, &updated);
+        updated
     }
 }
 
