@@ -183,4 +183,40 @@ Base URL `http://localhost:3001/api` · interactive docs at `/api/docs`.
 
 ## License
 
-[MIT](LICENSE) © Raíz
+[MIT](LICENSE) © Grow
+
+---
+
+## 🚀 Ship It: Stellar Builder Challenge
+
+**23–27 de noviembre de 2026 · Meta: Grow Beta en vivo en la mainnet de Stellar**
+
+Durante este Boot Camp de una semana, llevaremos Grow de un prototipo en testnet a una beta real y funcional en mainnet. El alcance es pequeño a propósito: lanzar algo real, seguro y utilizable.
+
+### Qué vamos a lanzar el 27 de noviembre
+
+- ✅ Contrato `yield_splitter` desplegado en **Stellar mainnet**, con topes de depósito por usuario
+- ✅ Flujo principal funcionando de punta a punta: conectar wallet → elegir proporción → enviar USDC → ver posición
+- ✅ La parte de ahorro enviada hacia un vault de rendimiento (DeFindex → Blend), con APY en vivo en el dashboard
+- ✅ API desplegada y conectada al contrato en mainnet
+- ✅ Probado con transacciones reales por un grupo pequeño de usuarios beta
+
+### Plan día por día
+
+| Día | Fecha  | Objetivo                                                           |
+|-----|--------|--------------------------------------------------------------------|
+| 1   | 23 nov | Definir el alcance y documentar el plan en el README               |
+| 2   | 24 nov | Configuración de mainnet, USDC y topes de depósito en el contrato  |
+| 3   | 25 nov | Conectar el vault de rendimiento y definir variables de entorno    |
+| 4   | 26 nov | Desplegar contrato y API, hacer una transacción real de prueba     |
+| 5   | 27 nov | Lanzamiento beta con usuarios, demo y push final a `main`          |
+
+### Fuera del alcance (por ahora)
+
+- Retiro a moneda local con SEP-24 en mainnet (próximamente)
+- Auditoría de seguridad de terceros
+- Remesas recurrentes o por streaming
+
+> ⚠️ **Aviso beta:** Grow no ha sido auditado. Usa solo montos pequeños.
+
+
