@@ -2,7 +2,10 @@
 
 use super::*;
 use soroban_sdk::{
-    testutils::{Address as _, Events as _},
+    testutils::{
+        storage::{Instance as _, Persistent as _},
+        Address as _, Events as _,
+    },
     token::{self, StellarAssetClient},
     Address, Env,
 };
@@ -28,9 +31,8 @@ fn setup<'a>() -> Harness<'a> {
     let token = token::Client::new(&env, &token_id);
     let token_admin = StellarAssetClient::new(&env, &token_id);
 
-    let contract_id = env.register(YieldSplitter, ());
+    let contract_id = env.register(YieldSplitter, (admin.clone(), token_id.clone(), CAP));
     let client = YieldSplitterClient::new(&env, &contract_id);
-    client.initialize(&admin, &token_id, &CAP);
 
     Harness {
         env,
@@ -118,7 +120,7 @@ fn savings_accumulate_across_remittances() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #4)")]
+#[should_panic(expected = "Error(Contract, #3)")]
 fn receive_rejects_zero_amount() {
     let h = setup();
     let (sender, recipient) = h.parties(10);
@@ -140,7 +142,7 @@ fn withdraw_savings_returns_funds_to_recipient() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #5)")]
+#[should_panic(expected = "Error(Contract, #4)")]
 fn withdraw_savings_over_balance_fails() {
     let h = setup();
     let (sender, recipient) = h.parties(200);
@@ -189,7 +191,7 @@ fn withdraw_requires_the_recipients_signature() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #3)")]
+#[should_panic(expected = "Error(Contract, #2)")]
 fn split_above_100_percent_fails() {
     let h = setup();
     let recipient = Address::generate(&h.env);
@@ -227,7 +229,7 @@ fn position_reports_full_state() {
 // ── Beta guardrails ─────────────────────────────────────────────────────────
 
 #[test]
-#[should_panic(expected = "Error(Contract, #6)")]
+#[should_panic(expected = "Error(Contract, #5)")]
 fn savings_over_the_cap_are_rejected() {
     let h = setup();
     let (sender, recipient) = h.parties(10_000);
@@ -262,7 +264,7 @@ fn withdrawing_frees_room_under_the_cap() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #7)")]
+#[should_panic(expected = "Error(Contract, #6)")]
 fn paused_contract_rejects_deposits() {
     let h = setup();
     let (sender, recipient) = h.parties(100);
@@ -283,7 +285,7 @@ fn paused_contract_still_allows_withdrawals() {
 }
 
 #[test]
-#[should_panic(expected = "Error(Contract, #8)")]
+#[should_panic(expected = "Error(Contract, #7)")]
 fn cap_must_be_positive() {
     let h = setup();
     h.client.set_user_cap(&0);
@@ -311,4 +313,47 @@ fn config_reports_settings() {
     assert_eq!(cfg.token, h.token.address);
     assert_eq!(cfg.user_cap, 2_500);
     assert!(cfg.paused);
+}
+
+// ── Deployment and storage lifetime ─────────────────────────────────────────
+
+#[test]
+#[should_panic(expected = "Error(Contract, #7)")]
+fn constructor_rejects_a_non_positive_cap() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let token = env.register_stellar_asset_contract_v2(admin.clone()).address();
+    env.register(YieldSplitter, (admin, token, 0_i128));
+}
+
+#[test]
+fn recipient_entries_get_a_long_ttl() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    h.client.set_split(&recipient, &5000);
+    h.client.receive(&sender, &recipient, &200);
+
+    h.env.as_contract(&h.client.address, || {
+        let store = h.env.storage().persistent();
+        assert!(store.get_ttl(&DataKey::Savings(recipient.clone())) >= USER_TTL_THRESHOLD);
+        assert!(store.get_ttl(&DataKey::Split(recipient.clone())) >= USER_TTL_THRESHOLD);
+        assert!(h.env.storage().instance().get_ttl() > 0);
+    });
+}
+
+#[test]
+fn emptied_savings_are_removed_from_storage() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    h.client.receive(&sender, &recipient, &200);
+    h.client.withdraw_savings(&recipient, &60);
+
+    h.env.as_contract(&h.client.address, || {
+        assert!(!h
+            .env
+            .storage()
+            .persistent()
+            .has(&DataKey::Savings(recipient.clone())));
+    });
+    assert_eq!(h.client.savings(&recipient), 0);
 }

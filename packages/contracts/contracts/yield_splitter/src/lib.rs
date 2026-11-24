@@ -14,14 +14,15 @@
 //! the recipient's own wallet, outside this contract.
 //!
 //! Beta guardrails: savings per recipient are capped (`user_cap`), and the
-//! admin can pause new deposits. Withdrawals always stay open.
+//! admin can pause new deposits. Withdrawals always stay open. The admin can
+//! also upgrade the contract code to ship fixes without migrating funds.
 //!
 //! Storage: `ratio (split)` · `savings` · `user_cap` · `paused`
 //! Events:  `SplitSet` · `FundsReceived` · `SavingsWithdrawn` · `UserCapSet` · `PausedSet`
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error, token,
-    Address, Env,
+    Address, BytesN, Env,
 };
 
 /// 100% expressed in basis points.
@@ -29,18 +30,26 @@ const BPS_DENOMINATOR: u32 = 10_000;
 /// Default split when a recipient has not chosen one: 70% spendable / 30% savings.
 const DEFAULT_SPENDABLE_BPS: u32 = 7_000;
 
+/// ~5s ledgers: 17,280 per day.
+const DAY_IN_LEDGERS: u32 = 17_280;
+/// Contract instance + code: keep at least a week alive, extend to a month.
+const INSTANCE_TTL_THRESHOLD: u32 = 7 * DAY_IN_LEDGERS;
+const INSTANCE_TTL_EXTEND_TO: u32 = 30 * DAY_IN_LEDGERS;
+/// Per-recipient entries: keep at least a month alive, extend to ~4 months.
+pub const USER_TTL_THRESHOLD: u32 = 30 * DAY_IN_LEDGERS;
+pub const USER_TTL_EXTEND_TO: u32 = 120 * DAY_IN_LEDGERS;
+
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 #[repr(u32)]
 pub enum Error {
-    AlreadyInitialized = 1,
-    NotInitialized = 2,
-    InvalidSplit = 3,
-    InvalidAmount = 4,
-    InsufficientSavings = 5,
-    CapExceeded = 6,
-    Paused = 7,
-    InvalidCap = 8,
+    NotInitialized = 1,
+    InvalidSplit = 2,
+    InvalidAmount = 3,
+    InsufficientSavings = 4,
+    CapExceeded = 5,
+    Paused = 6,
+    InvalidCap = 7,
 }
 
 #[derive(Clone)]
@@ -129,20 +138,18 @@ pub struct YieldSplitter;
 
 #[contractimpl]
 impl YieldSplitter {
-    /// Initialize the contract with an admin, the USDC token address and the
-    /// per-recipient savings cap (token base units).
-    pub fn initialize(env: Env, admin: Address, token: Address, user_cap: i128) {
-        if env.storage().instance().has(&DataKey::Admin) {
-            panic_with_error!(&env, Error::AlreadyInitialized);
-        }
-        admin.require_auth();
+    /// Runs once, atomically with the deploy, so nobody can initialize the
+    /// contract before its owner does. `user_cap` is in token base units.
+    pub fn __constructor(env: Env, admin: Address, token: Address, user_cap: i128) {
         if user_cap <= 0 {
             panic_with_error!(&env, Error::InvalidCap);
         }
-        env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::Token, &token);
-        env.storage().instance().set(&DataKey::UserCap, &user_cap);
-        env.storage().instance().set(&DataKey::Paused, &false);
+        let store = env.storage().instance();
+        store.set(&DataKey::Admin, &admin);
+        store.set(&DataKey::Token, &token);
+        store.set(&DataKey::UserCap, &user_cap);
+        store.set(&DataKey::Paused, &false);
+        Self::bump_instance(&env);
     }
 
     // ── Admin ───────────────────────────────────────────────────────────────
@@ -155,6 +162,7 @@ impl YieldSplitter {
             panic_with_error!(&env, Error::InvalidCap);
         }
         env.storage().instance().set(&DataKey::UserCap, &user_cap);
+        Self::bump_instance(&env);
         UserCapSet { user_cap }.publish(&env);
     }
 
@@ -162,7 +170,15 @@ impl YieldSplitter {
     pub fn set_paused(env: Env, paused: bool) {
         Self::read_admin(&env).require_auth();
         env.storage().instance().set(&DataKey::Paused, &paused);
+        Self::bump_instance(&env);
         PausedSet { paused }.publish(&env);
+    }
+
+    /// Replace the contract code, keeping its id and storage. Admin only.
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        Self::read_admin(&env).require_auth();
+        Self::bump_instance(&env);
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
     // ── Recipients ──────────────────────────────────────────────────────────
@@ -174,9 +190,10 @@ impl YieldSplitter {
         if spendable_bps > BPS_DENOMINATOR {
             panic_with_error!(&env, Error::InvalidSplit);
         }
-        env.storage()
-            .persistent()
-            .set(&DataKey::Split(user.clone()), &spendable_bps);
+        let key = DataKey::Split(user.clone());
+        env.storage().persistent().set(&key, &spendable_bps);
+        Self::bump_user(&env, &key);
+        Self::bump_instance(&env);
         SplitSet {
             user,
             spendable_bps,
@@ -222,6 +239,12 @@ impl YieldSplitter {
             Self::add_savings(&env, &to, savings);
         }
 
+        let split_key = DataKey::Split(to.clone());
+        if env.storage().persistent().has(&split_key) {
+            Self::bump_user(&env, &split_key);
+        }
+        Self::bump_instance(&env);
+
         FundsReceived {
             to,
             from,
@@ -251,6 +274,7 @@ impl YieldSplitter {
             &to,
             &amount,
         );
+        Self::bump_instance(&env);
         SavingsWithdrawn {
             to,
             amount,
@@ -312,12 +336,31 @@ impl YieldSplitter {
             .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized))
     }
 
+    /// Adjust a recipient's savings by `delta`, returning the new balance. An
+    /// emptied balance is removed instead of paying rent for a zero.
     fn add_savings(env: &Env, user: &Address, delta: i128) -> i128 {
         let key = DataKey::Savings(user.clone());
         let current: i128 = env.storage().persistent().get(&key).unwrap_or(0);
         let updated = current + delta;
-        env.storage().persistent().set(&key, &updated);
+        if updated == 0 {
+            env.storage().persistent().remove(&key);
+        } else {
+            env.storage().persistent().set(&key, &updated);
+            Self::bump_user(env, &key);
+        }
         updated
+    }
+
+    fn bump_user(env: &Env, key: &DataKey) {
+        env.storage()
+            .persistent()
+            .extend_ttl(key, USER_TTL_THRESHOLD, USER_TTL_EXTEND_TO);
+    }
+
+    fn bump_instance(env: &Env) {
+        env.storage()
+            .instance()
+            .extend_ttl(INSTANCE_TTL_THRESHOLD, INSTANCE_TTL_EXTEND_TO);
     }
 }
 
