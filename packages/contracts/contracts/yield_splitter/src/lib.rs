@@ -13,8 +13,11 @@
 //! recipient. Routing savings into a yield vault (DeFindex, Blend) is done from
 //! the recipient's own wallet, outside this contract.
 //!
-//! Storage: `ratio (split)` · `savings`
-//! Events:  `SplitSet` · `FundsReceived` · `SavingsWithdrawn`
+//! Beta guardrails: savings per recipient are capped (`user_cap`), and the
+//! admin can pause new deposits. Withdrawals always stay open.
+//!
+//! Storage: `ratio (split)` · `savings` · `user_cap` · `paused`
+//! Events:  `SplitSet` · `FundsReceived` · `SavingsWithdrawn` · `UserCapSet` · `PausedSet`
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error, token,
@@ -35,6 +38,9 @@ pub enum Error {
     InvalidSplit = 3,
     InvalidAmount = 4,
     InsufficientSavings = 5,
+    CapExceeded = 6,
+    Paused = 7,
+    InvalidCap = 8,
 }
 
 #[derive(Clone)]
@@ -43,6 +49,10 @@ pub enum DataKey {
     Admin,
     /// USDC token contract address used for transfers.
     Token,
+    /// Max savings (token base units) the contract may hold for one recipient.
+    UserCap,
+    /// When true, `receive` is rejected. Withdrawals are never paused.
+    Paused,
     /// Per-recipient spendable ratio in basis points.
     Split(Address),
     /// Per-recipient savings held by this contract.
@@ -55,6 +65,16 @@ pub enum DataKey {
 pub struct Position {
     pub spendable_bps: u32,
     pub savings: i128,
+}
+
+/// Global contract settings, returned by `config`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct Config {
+    pub admin: Address,
+    pub token: Address,
+    pub user_cap: i128,
+    pub paused: bool,
 }
 
 // ── Events ────────────────────────────────────────────────────────────────
@@ -90,20 +110,62 @@ pub struct SavingsWithdrawn {
     pub remaining: i128,
 }
 
+/// The admin changed the per-recipient savings cap.
+#[contractevent]
+#[derive(Clone)]
+pub struct UserCapSet {
+    pub user_cap: i128,
+}
+
+/// The admin paused or resumed new deposits.
+#[contractevent]
+#[derive(Clone)]
+pub struct PausedSet {
+    pub paused: bool,
+}
+
 #[contract]
 pub struct YieldSplitter;
 
 #[contractimpl]
 impl YieldSplitter {
-    /// Initialize the contract with an admin and the USDC token address.
-    pub fn initialize(env: Env, admin: Address, token: Address) {
+    /// Initialize the contract with an admin, the USDC token address and the
+    /// per-recipient savings cap (token base units).
+    pub fn initialize(env: Env, admin: Address, token: Address, user_cap: i128) {
         if env.storage().instance().has(&DataKey::Admin) {
             panic_with_error!(&env, Error::AlreadyInitialized);
         }
         admin.require_auth();
+        if user_cap <= 0 {
+            panic_with_error!(&env, Error::InvalidCap);
+        }
         env.storage().instance().set(&DataKey::Admin, &admin);
         env.storage().instance().set(&DataKey::Token, &token);
+        env.storage().instance().set(&DataKey::UserCap, &user_cap);
+        env.storage().instance().set(&DataKey::Paused, &false);
     }
+
+    // ── Admin ───────────────────────────────────────────────────────────────
+
+    /// Change the per-recipient savings cap. Admin only. Lowering it below a
+    /// recipient's current savings only blocks new deposits for them.
+    pub fn set_user_cap(env: Env, user_cap: i128) {
+        Self::read_admin(&env).require_auth();
+        if user_cap <= 0 {
+            panic_with_error!(&env, Error::InvalidCap);
+        }
+        env.storage().instance().set(&DataKey::UserCap, &user_cap);
+        UserCapSet { user_cap }.publish(&env);
+    }
+
+    /// Pause or resume new deposits. Admin only. Withdrawals keep working.
+    pub fn set_paused(env: Env, paused: bool) {
+        Self::read_admin(&env).require_auth();
+        env.storage().instance().set(&DataKey::Paused, &paused);
+        PausedSet { paused }.publish(&env);
+    }
+
+    // ── Recipients ──────────────────────────────────────────────────────────
 
     /// Choose the spendable ratio (in basis points) for the caller.
     /// `spendable_bps` must be between 0 and 10_000; the remainder is saved.
@@ -137,6 +199,9 @@ impl YieldSplitter {
     /// Returns `(spendable, savings)` amounts.
     pub fn receive(env: Env, from: Address, to: Address, amount: i128) -> (i128, i128) {
         from.require_auth();
+        if Self::is_paused(&env) {
+            panic_with_error!(&env, Error::Paused);
+        }
         if amount <= 0 {
             panic_with_error!(&env, Error::InvalidAmount);
         }
@@ -144,6 +209,9 @@ impl YieldSplitter {
         let spendable_bps = Self::get_split(env.clone(), to.clone());
         let spendable = amount * i128::from(spendable_bps) / i128::from(BPS_DENOMINATOR);
         let savings = amount - spendable;
+        if Self::savings(env.clone(), to.clone()) + savings > Self::read_user_cap(&env) {
+            panic_with_error!(&env, Error::CapExceeded);
+        }
 
         let token = token::Client::new(&env, &Self::token(&env));
         if spendable > 0 {
@@ -201,6 +269,15 @@ impl YieldSplitter {
             .unwrap_or(0)
     }
 
+    pub fn config(env: Env) -> Config {
+        Config {
+            admin: Self::read_admin(&env),
+            token: Self::token(&env),
+            user_cap: Self::read_user_cap(&env),
+            paused: Self::is_paused(&env),
+        }
+    }
+
     pub fn position(env: Env, user: Address) -> Position {
         Position {
             spendable_bps: Self::get_split(env.clone(), user.clone()),
@@ -209,6 +286,24 @@ impl YieldSplitter {
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────────
+
+    fn read_admin(env: &Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&DataKey::Admin)
+            .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized))
+    }
+
+    fn read_user_cap(env: &Env) -> i128 {
+        env.storage()
+            .instance()
+            .get(&DataKey::UserCap)
+            .unwrap_or_else(|| panic_with_error!(env, Error::NotInitialized))
+    }
+
+    fn is_paused(env: &Env) -> bool {
+        env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    }
 
     fn token(env: &Env) -> Address {
         env.storage()

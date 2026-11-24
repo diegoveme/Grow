@@ -7,8 +7,12 @@ use soroban_sdk::{
     Address, Env,
 };
 
+/// Per-recipient savings cap used by the default harness.
+const CAP: i128 = 1_000;
+
 struct Harness<'a> {
     env: Env,
+    admin: Address,
     client: YieldSplitterClient<'a>,
     token: token::Client<'a>,
     token_admin: StellarAssetClient<'a>,
@@ -26,10 +30,11 @@ fn setup<'a>() -> Harness<'a> {
 
     let contract_id = env.register(YieldSplitter, ());
     let client = YieldSplitterClient::new(&env, &contract_id);
-    client.initialize(&admin, &token_id);
+    client.initialize(&admin, &token_id, &CAP);
 
     Harness {
         env,
+        admin,
         client,
         token,
         token_admin,
@@ -217,4 +222,93 @@ fn position_reports_full_state() {
             savings: 60,
         }
     );
+}
+
+// ── Beta guardrails ─────────────────────────────────────────────────────────
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6)")]
+fn savings_over_the_cap_are_rejected() {
+    let h = setup();
+    let (sender, recipient) = h.parties(10_000);
+    h.client.set_split(&recipient, &0);
+
+    h.client.receive(&sender, &recipient, &CAP);
+    // One more unit of savings would exceed the cap.
+    h.client.receive(&sender, &recipient, &1);
+}
+
+#[test]
+fn cap_only_counts_savings() {
+    let h = setup();
+    let (sender, recipient) = h.parties(10_000);
+
+    // 70/30 of 3000 saves 900, under the 1000 cap; the 2100 spendable is not held.
+    h.client.receive(&sender, &recipient, &3000);
+    assert_eq!(h.client.savings(&recipient), 900);
+}
+
+#[test]
+fn withdrawing_frees_room_under_the_cap() {
+    let h = setup();
+    let (sender, recipient) = h.parties(10_000);
+    h.client.set_split(&recipient, &0);
+    h.client.receive(&sender, &recipient, &CAP);
+
+    h.client.withdraw_savings(&recipient, &400);
+    h.client.receive(&sender, &recipient, &400);
+
+    assert_eq!(h.client.savings(&recipient), CAP);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #7)")]
+fn paused_contract_rejects_deposits() {
+    let h = setup();
+    let (sender, recipient) = h.parties(100);
+    h.client.set_paused(&true);
+    h.client.receive(&sender, &recipient, &100);
+}
+
+#[test]
+fn paused_contract_still_allows_withdrawals() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    h.client.receive(&sender, &recipient, &200);
+    h.client.set_paused(&true);
+
+    h.client.withdraw_savings(&recipient, &60);
+
+    assert_eq!(h.token.balance(&recipient), 200);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #8)")]
+fn cap_must_be_positive() {
+    let h = setup();
+    h.client.set_user_cap(&0);
+}
+
+#[test]
+fn admin_actions_require_the_admins_signature() {
+    let h = setup();
+
+    h.client.set_user_cap(&5_000);
+    assert_eq!(h.env.auths()[0].0, h.admin);
+
+    h.client.set_paused(&true);
+    assert_eq!(h.env.auths()[0].0, h.admin);
+}
+
+#[test]
+fn config_reports_settings() {
+    let h = setup();
+    h.client.set_user_cap(&2_500);
+    h.client.set_paused(&true);
+
+    let cfg = h.client.config();
+    assert_eq!(cfg.admin, h.admin);
+    assert_eq!(cfg.token, h.token.address);
+    assert_eq!(cfg.user_cap, 2_500);
+    assert!(cfg.paused);
 }
