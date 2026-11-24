@@ -13,3 +13,7 @@
 ## How Grow talks to Stellar
 The API uses `@stellar/stellar-sdk` to build unsigned Soroban transactions.
 The user's wallet signs them, and `/splits/submit` sends them to the network.
+
+## Testnet transaction
+`set_split` called on yield_splitter:
+https://stellar.expert/explorer/testnet/tx/3937a3dd78d4a1c140b61bbb9ea320761a2a9eb9f558e408eba609d2a3d08ea0
