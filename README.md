@@ -136,6 +136,7 @@ bun run deploy       # builds, deploys, initializes; prints the contract id
 > A reference deployment lives on **Stellar testnet**:
 > `CAI6YBXYA56VKKDQHMIGJDGSFTQJPJZHZODBS3YZCTTPM2UOGNLFVYYC`
 
+See [docs/testnet.md](docs/testnet.md) for testnet details.
 ---
 
 ## Smart contract — `yield_splitter`
