@@ -3,6 +3,9 @@ import type { AccountInfo, AssetCode, PaymentRecord } from "./types";
 
 /** Classic layer: balances, history, XLM/USDC payments, trustline, faucet. */
 export const accountsApi = {
+  /** Testnet only: swap `xlm` for test USDC on the DEX. */
+  buildTestUsdc: (account: string, xlm: string) =>
+    post<{ xdr: string; quote: string }>("/accounts/test-usdc/build", { account, xlm }),
   health: () =>
     request<{ status: string; network: string; database: string }>("/health"),
 

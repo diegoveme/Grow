@@ -20,6 +20,7 @@ export default function ReceivePage() {
   const { data: info, refresh } = useAccount(address);
   const { copied, copy } = useCopy();
   const trustTx = useTx();
+  const usdcTx = useTx();
 
   const [funding, setFunding] = useState(false);
   const [fundMsg, setFundMsg] = useState<string | null>(null);
@@ -37,6 +38,13 @@ export default function ReceivePage() {
     } finally {
       setFunding(false);
     }
+  }
+
+  /** Testnet: swap 100 XLM for test USDC on the DEX, so Grow can be tried. */
+  async function getTestUsdc() {
+    if (!address) return;
+    const hash = await usdcTx.run(() => api.buildTestUsdc(address, "100"));
+    if (hash) setTimeout(refresh, 1500);
   }
 
   async function addTrustline() {
@@ -124,12 +132,26 @@ export default function ReceivePage() {
         <Card className="mt-4">
           <CardLabel>Testnet faucet</CardLabel>
           <p className="mb-4 text-sm opacity-55">
-            Need funds to try Grow? Get free testnet XLM from friendbot.
+            Need funds to try Grow? Get free testnet XLM from friendbot, then swap some of it
+            for test USDC on the Stellar DEX.
           </p>
-          <Button variant="ghost" onClick={fund} disabled={funding} className="w-full sm:w-auto">
-            {funding ? "Funding…" : "Fund testnet XLM"}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="ghost" onClick={fund} disabled={funding}>
+              {funding ? "Funding…" : "1 · Fund testnet XLM"}
+            </Button>
+            <Button
+              variant="gold"
+              onClick={getTestUsdc}
+              disabled={usdcTx.loading || !info?.usdcTrustline}
+            >
+              {usdcTx.loading ? "Swapping…" : "2 · Get test USDC (100 XLM)"}
+            </Button>
+          </div>
+          {!info?.usdcTrustline && (
+            <p className="mt-3 text-xs opacity-55">Add the USDC trustline above to get test USDC.</p>
+          )}
           {fundMsg && <p className="mt-3 text-xs text-brote">{fundMsg}</p>}
+          <TxStatus error={usdcTx.error} hash={usdcTx.hash} success="Test USDC added" />
         </Card>
       )}
     </div>

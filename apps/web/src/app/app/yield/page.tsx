@@ -49,7 +49,7 @@ export default function YieldPage() {
         <Card>
           <Stat
             value={position ? formatUsd(position.currentValue) : "$0.00"}
-            label="In vault"
+            label={position ? `In vault · ${Number(position.shares).toLocaleString("en-US", { maximumFractionDigits: 2 })} shares` : "In vault"}
             accent="oro"
           />
         </Card>
