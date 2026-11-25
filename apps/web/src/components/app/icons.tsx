@@ -60,6 +60,16 @@ export function YieldIcon(p: SVGProps<SVGSVGElement>) {
   );
 }
 
+/** A tag with a lock: money earmarked for a purpose. */
+export function PledgeIcon(p: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base} {...p}>
+      <path d="M3 12V5a2 2 0 0 1 2-2h7l9 9-9 9-9-9Z" />
+      <circle cx="8" cy="8" r="1.5" />
+    </svg>
+  );
+}
+
 export function SettingsIcon(p: SVGProps<SVGSVGElement>) {
   return (
     <svg {...base} {...p}>
