@@ -14,9 +14,11 @@ import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
 import { useAccount, useCopy } from "@/lib/hooks";
 import { config, explorerAccount } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 
 export default function ReceivePage() {
   const { address } = useWallet();
+  const t = useT();
   const { data: info, refresh } = useAccount(address);
   const { copied, copy } = useCopy();
   const trustTx = useTx();
@@ -31,10 +33,10 @@ export default function ReceivePage() {
     setFundMsg(null);
     try {
       const { funded } = await api.fund(address);
-      setFundMsg(funded ? "Funded! 10,000 testnet XLM added." : "Already funded or unavailable.");
+      setFundMsg(funded ? t.receive.funded : t.receive.alreadyFunded);
       setTimeout(refresh, 1500);
     } catch {
-      setFundMsg("Could not reach friendbot. Try again.");
+      setFundMsg(t.receive.friendbotDown);
     } finally {
       setFunding(false);
     }
@@ -60,13 +62,13 @@ export default function ReceivePage() {
   return (
     <div className="mx-auto max-w-xl animate-rise">
       <PageHeader
-        eyebrow="Receive"
-        title="Receive money"
-        subtitle="Share your address to get paid in XLM or USDC."
+        eyebrow={t.receive.eyebrow}
+        title={t.receive.title}
+        subtitle={t.receive.subtitle}
       />
 
       <Card className="text-center">
-        <CardLabel>Your Stellar address</CardLabel>
+        <CardLabel>{t.receive.yourAddress}</CardLabel>
         <div className="mx-auto mb-5 w-fit rounded-md bg-luz p-3">
           <QRCodeSVG value={address} size={168} bgColor="#F7F0E0" fgColor="#1C1A14" />
         </div>
@@ -75,10 +77,10 @@ export default function ReceivePage() {
         </div>
         <Button variant="ghost" onClick={() => copy(address)} className="mx-auto">
           {copied ? <CheckIcon width={15} height={15} /> : <CopyIcon width={15} height={15} />}
-          {copied ? "Copied" : "Copy address"}
+          {copied ? t.receive.copied : t.receive.copy}
         </Button>
         <div className="mt-3 text-xs text-agua/70">
-          <ExplorerLink href={explorerAccount(address)}>View on StellarView</ExplorerLink>
+          <ExplorerLink href={explorerAccount(address)}>{t.receive.viewOnExplorer}</ExplorerLink>
         </div>
       </Card>
 
@@ -88,26 +90,23 @@ export default function ReceivePage() {
         {info?.usdcTrustline ? (
           <div className="flex items-center gap-2 text-sm text-brote">
             <CheckIcon width={16} height={16} />
-            USDC is enabled. You can receive it.
+            {t.receive.usdcEnabled}
           </div>
         ) : (
           <>
-            <p className="mb-4 text-sm opacity-55">
-              To receive USDC you need a one-time trustline. This is a tiny on-chain transaction
-              you sign with your wallet.
-            </p>
+            <p className="mb-4 text-sm opacity-55">{t.receive.trustlineBody}</p>
             <Button
               variant="gold"
               onClick={addTrustline}
               disabled={trustTx.loading || !info?.funded}
               className="w-full sm:w-auto"
             >
-              {trustTx.loading ? "Adding…" : "Add USDC trustline"}
+              {trustTx.loading ? t.receive.adding : t.receive.addTrustline}
             </Button>
             {!info?.funded && (
-              <p className="mt-3 text-xs text-oro">Fund your account with XLM first.</p>
+              <p className="mt-3 text-xs text-oro">{t.receive.fundFirst}</p>
             )}
-            <TxStatus error={trustTx.error} hash={trustTx.hash} success="USDC enabled ✓" />
+            <TxStatus error={trustTx.error} hash={trustTx.hash} success={t.receive.trustlineDone} />
           </>
         )}
       </Card>
@@ -119,10 +118,8 @@ export default function ReceivePage() {
           <AnchorPanel />
         ) : (
           <Card>
-            <CardLabel>Cash in / out</CardLabel>
-            <p className="text-sm opacity-55">
-              Cash out to local currency through a Stellar anchor is coming soon.
-            </p>
+            <CardLabel>{t.receive.cashInOut}</CardLabel>
+            <p className="text-sm opacity-55">{t.receive.cashOutSoon}</p>
           </Card>
         )}
       </div>
@@ -130,28 +127,25 @@ export default function ReceivePage() {
       {/* Testnet faucet */}
       {isTestnet && (
         <Card className="mt-4">
-          <CardLabel>Testnet faucet</CardLabel>
-          <p className="mb-4 text-sm opacity-55">
-            Need funds to try Grow? Get free testnet XLM from friendbot, then swap some of it
-            for test USDC on the Stellar DEX.
-          </p>
+          <CardLabel>{t.receive.faucet}</CardLabel>
+          <p className="mb-4 text-sm opacity-55">{t.receive.faucetBody}</p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button variant="ghost" onClick={fund} disabled={funding}>
-              {funding ? "Funding…" : "1 · Fund testnet XLM"}
+              {funding ? t.receive.funding : t.receive.fundXlm}
             </Button>
             <Button
               variant="gold"
               onClick={getTestUsdc}
               disabled={usdcTx.loading || !info?.usdcTrustline}
             >
-              {usdcTx.loading ? "Swapping…" : "2 · Get test USDC (100 XLM)"}
+              {usdcTx.loading ? t.receive.swapping : t.receive.getUsdc}
             </Button>
           </div>
           {!info?.usdcTrustline && (
-            <p className="mt-3 text-xs opacity-55">Add the USDC trustline above to get test USDC.</p>
+            <p className="mt-3 text-xs opacity-55">{t.receive.usdcNeedsTrustline}</p>
           )}
           {fundMsg && <p className="mt-3 text-xs text-brote">{fundMsg}</p>}
-          <TxStatus error={usdcTx.error} hash={usdcTx.hash} success="Test USDC added" />
+          <TxStatus error={usdcTx.error} hash={usdcTx.hash} success={t.receive.usdcDone} />
         </Card>
       )}
     </div>
