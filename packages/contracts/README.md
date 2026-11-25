@@ -22,11 +22,19 @@ wallet, outside the contract.
 | `set_split(user, spendable_bps)` | user | Choose the spendable share in basis points (0 to 10000) |
 | `get_split(user) -> u32` | | Current ratio (defaults to 7000 = 70%) |
 | `receive(from, to, amount) -> (spendable, savings)` | sender | Pay spendable to `to`, hold savings for `to` |
+| `send_batch(from, payments) -> total` | sender | Pay up to 10 people in one call, each split by their own ratio |
+| `create_schedule(from, to, amount, interval, runs) -> id` | sender | Recurring remittance paid from a token allowance |
+| `run_schedule(id) -> (spendable, savings)` | anyone | Run a due schedule; late runs never stack up |
+| `cancel_schedule(id)` · `schedule(id)` | sender · | Stop a schedule · read it |
+| `create_pledge(from, beneficiary, payee, amount, expires_at) -> id` | sender | Earmark money for a payee (school, clinic) |
+| `release_pledge(id)` | beneficiary | Pay the payee, until expiry (never paused) |
+| `refund_pledge(id)` · `pledge(id)` | sender · | Take an unused pledge back after expiry · read it |
 | `deposit_savings(user, amount) -> total` | user | Set aside own USDC into savings (cap and pause apply) |
 | `withdraw_savings(to, amount) -> remaining` | recipient | Withdraw savings back to the wallet |
 | `pay_from_savings(user, to, amount) -> remaining` | user | Pay a third party straight out of savings (never paused) |
 | `set_user_cap(user_cap)` | admin | Change the per-recipient savings cap |
 | `set_paused(paused)` | admin | Pause or resume `receive`. Withdrawals are never paused |
+| `recover_token(token, to, amount)` | admin | Return a token sent by mistake; never the configured USDC |
 | `upgrade(new_wasm_hash)` | admin | Replace the code, keeping id and storage |
 | `savings / position / config` | | Views |
 
@@ -45,6 +53,15 @@ every write), plus `admin`, `token`, `user_cap` and `paused` (instance).
 | 5 | `CapExceeded` | The recipient's savings would go over `user_cap` |
 | 6 | `Paused` | New deposits are paused |
 | 7 | `InvalidCap` | `user_cap` must be greater than zero |
+| 8 | `ScheduleNotFound` | No such schedule (finished or cancelled) |
+| 9 | `ScheduleNotDue` | The next run isn't due yet |
+| 10 | `InvalidSchedule` | Bad amount, interval under 60s, or runs outside 1 to 120 |
+| 11 | `InvalidBatch` | A batch needs 1 to 10 payments |
+| 12 | `PledgeNotFound` | No such pledge (paid or refunded) |
+| 13 | `PledgeExpired` | Too late to release; the sender can refund |
+| 14 | `PledgeNotExpired` | Too early to refund |
+| 15 | `InvalidPledge` | Bad amount or an expiry not in the future |
+| 16 | `RecoverForbidden` | The configured USDC can't be recovered |
 
 The API translates these into user-facing messages
 (`apps/api/src/stellar/contract-errors.ts`); keep both in sync.

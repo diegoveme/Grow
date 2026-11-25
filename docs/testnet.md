@@ -42,6 +42,13 @@ so it is not the app's official deployment.
 | `deposit_savings` | [60fe348c…](https://stellar.expert/explorer/testnet/tx/60fe348cf9f8b8ce8a4480dd940f008c5809f9c7d4b68740d7aa92ad7ed3aeba) | Recipient set aside 10 of their own |
 | `upgrade` | [cf0f00e7…](https://stellar.expert/explorer/testnet/tx/cf0f00e709db5444dbe97b520df4eb5c696585b63f0cfae2ab09ade26b484cc8) | Admin swapped in the code with `pay_from_savings` |
 | `pay_from_savings` | [e49c3d40…](https://stellar.expert/explorer/testnet/tx/e49c3d40b3c23eec0a02029839b0fd5722f83b1ccacc67c52cef5a6dbe372243) | Recipient paid 5 from savings straight to another account |
+| `send_batch` | [5f9e681d…](https://stellar.expert/explorer/testnet/tx/5f9e681ddf68bc4de4f0644c330eee7540f2c1621b0403649078e276b4c5aa19) | One signature paid two people, each split by their own ratio |
+| `create_schedule` | [c1ff3e0d…](https://stellar.expert/explorer/testnet/tx/c1ff3e0d030eead0714ebf17d5c02ec5ff2ae852f652a8a5c49fa43edbbab3bd) | 5 every 60s, 2 runs, after a token approve |
+| `run_schedule` | [acbdc2d5…](https://stellar.expert/explorer/testnet/tx/acbdc2d5a3ddcdabbc8ee95361fd5641f62c834e88738be93986f31a3c41faaf) | First run, triggered by someone other than the sender |
+| `create_pledge` | [85e47c13…](https://stellar.expert/explorer/testnet/tx/85e47c139fa986edd1f98200a0969b2ea420a6662f6d50700347b71a9011a9a0) | 4 earmarked for a payee, released by the beneficiary |
+| `release_pledge` | [1304fde4…](https://stellar.expert/explorer/testnet/tx/1304fde438e93ce3b142707ff6016fdc0481b81d1290b2d605d5b67072f3d61e) | Beneficiary paid the payee directly |
+| `refund_pledge` | [54260153…](https://stellar.expert/explorer/testnet/tx/542601535f2568237dc773c1e8f2d161faa5ae5fec92465477d09d93d2d6fdc2) | An expired, unused pledge went back to its sender |
+| `recover_token` | [d4673c30…](https://stellar.expert/explorer/testnet/tx/d4673c30085ecf9c39bfeceb533d91df9bb4a728e512c8a8dd3a7b4066ed000c) | Admin returned XLM sent to the contract by mistake |
 
 All of them were built by the Grow API and signed by the account named in the
 call. Tests for each function live in

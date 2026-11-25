@@ -154,14 +154,17 @@ See [docs/testnet.md](docs/testnet.md) for testnet details,
 | `__constructor(admin, token, user_cap)` | Runs with the deploy (no front-runnable init) |
 | `set_split(user, spendable_bps)` | Recipient picks their spendable % (basis points) |
 | `receive(from, to, amount)` | Pay the spendable share to `to`, hold the savings for `to` |
+| `send_batch(from, payments)` | Pay several family members with one signature |
+| `create_schedule` · `run_schedule` · `cancel_schedule` | Recurring remittances from a one-time token allowance |
+| `create_pledge` · `release_pledge` · `refund_pledge` | Conditional remittances: money earmarked for a payee such as a school |
 | `deposit_savings(user, amount)` | Recipient sets aside their own USDC into savings |
 | `withdraw_savings(to, amount)` | Recipient withdraws savings to their wallet |
 | `pay_from_savings(user, to, amount)` | Recipient pays a school, clinic or landlord straight from savings |
-| `set_user_cap` · `set_paused` · `upgrade` | Admin guardrails (withdrawals are never paused) |
+| `set_user_cap` · `set_paused` · `recover_token` · `upgrade` | Admin guardrails (withdrawals are never paused) |
 | `position(user)` · `config()` | Read savings + ratio, and the contract settings |
 
 **Events:** `SplitSet` · `FundsReceived` · `SavingsDeposited` · `SavingsWithdrawn` · `SavingsSpent` · `UserCapSet` · `PausedSet`
-&nbsp;·&nbsp; **Tests:** `cd packages/contracts && cargo test` (37 passing, plus 2 upgrade tests via `bun run test:upgrade`)
+&nbsp;·&nbsp; **Tests:** `cd packages/contracts && cargo test` (60 passing, plus 2 upgrade tests via `bun run test:upgrade`)
 
 ---
 
