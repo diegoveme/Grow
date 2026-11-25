@@ -10,6 +10,7 @@ import { AnchorModule } from './anchor/anchor.module';
 import { SplitsModule } from './splits/splits.module';
 import { VaultModule } from './vault/vault.module';
 import { RemittancesModule } from './remittances/remittances.module';
+import { StatsModule } from './stats/stats.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { RemittancesModule } from './remittances/remittances.module';
     SplitsModule,
     VaultModule,
     RemittancesModule,
+    StatsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

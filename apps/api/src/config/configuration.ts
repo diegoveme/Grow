@@ -24,6 +24,12 @@ export interface AppConfig {
     issuer: string;
   };
   defindexApiKey?: string;
+  stats: {
+    /** Poll contract events into the stats store (off with STATS_INDEXER=false). */
+    indexer: boolean;
+    /** First ledger to index; defaults to the oldest one the RPC still keeps. */
+    startLedger?: number;
+  };
   database: {
     url?: string;
     host?: string;
@@ -65,6 +71,10 @@ export default (): AppConfig => {
         'GATALTGTWIOT6BUDBCZM3Q4OQ4BO2COLOAZ7IYSKPLC2PMSOPPGF5V56',
     },
     defindexApiKey: process.env.DEFINDEX_API_KEY?.trim() || undefined,
+    stats: {
+      indexer: process.env.STATS_INDEXER !== 'false' && process.env.NODE_ENV !== 'test',
+      startLedger: Number(process.env.STATS_START_LEDGER) || undefined,
+    },
     database: {
       // A full connection string is supported, but individual vars take
       // precedence and avoid URL-encoding pitfalls for passwords with @, spaces, etc.

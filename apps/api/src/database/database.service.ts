@@ -21,6 +21,27 @@ create index if not exists remittances_from_idx on remittances (from_address);
 create index if not exists remittances_created_idx on remittances (created_at desc);
 -- One row per on-chain transaction; also the ON CONFLICT target for inserts.
 create unique index if not exists remittances_tx_hash_key on remittances (tx_hash);
+
+-- Indexed yield_splitter events (stats) and the RPC cursor per contract.
+create table if not exists contract_events (
+  id           text primary key,
+  contract_id  text        not null,
+  ledger       integer     not null,
+  tx_hash      text        not null,
+  closed_at    timestamptz not null,
+  type         text        not null,
+  account      text,
+  from_address text,
+  amount       text,
+  spendable    text,
+  savings      text
+);
+create index if not exists contract_events_contract_idx on contract_events (contract_id, ledger);
+create table if not exists sync_cursors (
+  name       text primary key,
+  cursor     text        not null,
+  updated_at timestamptz not null default now()
+);
 `;
 
 /**
