@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Asset, BASE_FEE, Memo, Operation, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
+import { toStroops, fromStroops } from '@raiz/shared';
 import type { AssetCode } from '@raiz/shared';
 import { HorizonService, isNotFound } from '../stellar/horizon.service';
 import { truncateUtf8 } from '../stellar/memo';
@@ -136,6 +137,52 @@ export class AccountsService {
       .setTimeout(180)
       .build()
       .toXDR();
+  }
+
+  /**
+   * Testnet only: swap `xlm` of the account's XLM for test USDC on the DEX
+   * (path payment to itself), accepting at most 2% less than the best quote.
+   * Testnet USDC has no faucet we can call, but it trades against XLM.
+   */
+  async buildTestUsdc(account: string, xlm: string): Promise<{ xdr: string; quote: string }> {
+    if (!this.horizon.isTestnet) {
+      throw new BadRequestException('Test USDC is only available on testnet.');
+    }
+    const info = await this.getAccountInfo(account);
+    if (!info.exists) throw new BadRequestException('Fund the account with testnet XLM first.');
+    if (!info.usdcTrustline) throw new BadRequestException('Add the USDC trustline first.');
+
+    const paths = await this.horizon.server
+      .strictSendPaths(Asset.native(), xlm, [this.horizon.usdc])
+      .call();
+    const best = [...paths.records].sort(
+      (a, b) => Number(b.destination_amount) - Number(a.destination_amount),
+    )[0];
+    if (!best) throw new BadRequestException('No XLM to USDC market on testnet right now.');
+
+    const quote = toStroops(best.destination_amount);
+    const destMin = fromStroops((quote * 98n) / 100n, 7);
+    const path = best.path.map((p: { asset_type: string; asset_code?: string; asset_issuer?: string }) =>
+      p.asset_type === 'native' ? Asset.native() : new Asset(p.asset_code!, p.asset_issuer!),
+    );
+    const source = await this.horizon.loadSource(account);
+    const tx = new TransactionBuilder(source, {
+      fee: BASE_FEE,
+      networkPassphrase: this.horizon.networkPassphrase,
+    })
+      .addOperation(
+        Operation.pathPaymentStrictSend({
+          sendAsset: Asset.native(),
+          sendAmount: xlm,
+          destination: account,
+          destAsset: this.horizon.usdc,
+          destMin,
+          path,
+        }),
+      )
+      .setTimeout(180)
+      .build();
+    return { xdr: tx.toXDR(), quote: best.destination_amount };
   }
 
   /** Submit a signed classic transaction through Horizon. */

@@ -34,6 +34,17 @@ export class TrustlineBuildDto {
   account!: string;
 }
 
+export class TestUsdcDto {
+  @ApiProperty({ example: 'GACCOUNT...' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  account!: string;
+
+  @ApiProperty({ example: '100', description: 'XLM to swap for test USDC' })
+  @IsString()
+  @Matches(AMOUNT_REGEX, { message: 'xlm must be a decimal with up to 7 decimals' })
+  xlm!: string;
+}
+
 export class SubmitClassicDto {
   @ApiProperty({ description: 'Signed transaction XDR (base64)' })
   @IsString()

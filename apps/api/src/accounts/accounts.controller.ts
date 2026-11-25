@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccountsService } from './accounts.service';
 import { StellarAddressPipe } from '../common/stellar-address.pipe';
-import { PaymentBuildDto, SubmitClassicDto, TrustlineBuildDto } from './dto';
+import { PaymentBuildDto, SubmitClassicDto, TestUsdcDto, TrustlineBuildDto } from './dto';
 
 /**
  * Real on-chain money layer: balances, history, classic XLM/USDC payments,
@@ -44,6 +44,12 @@ export class AccountsController {
   @ApiOperation({ summary: 'Build an unsigned USDC trustline (changeTrust) transaction' })
   async buildTrustline(@Body() dto: TrustlineBuildDto) {
     return { xdr: await this.accounts.buildChangeTrust(dto.account) };
+  }
+
+  @Post('test-usdc/build')
+  @ApiOperation({ summary: 'Testnet: build an XLM to USDC swap so the account can try Grow' })
+  buildTestUsdc(@Body() dto: TestUsdcDto) {
+    return this.accounts.buildTestUsdc(dto.account, dto.xlm);
   }
 
   @Post('submit')

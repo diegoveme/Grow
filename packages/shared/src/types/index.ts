@@ -62,6 +62,8 @@ export interface VaultPosition {
   vaultAddress: string;
   /** Current value including yield (display units). */
   currentValue: string;
+  /** Vault shares (dfTokens) held (display units). */
+  shares: string;
   /** Annual percentage yield, as a fraction (0.06 = 6%). */
   apy: number;
   /** Underlying strategy, e.g. "Blend USDC pool". */
