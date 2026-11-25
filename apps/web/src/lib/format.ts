@@ -36,3 +36,10 @@ export function timeAgo(iso: string): string {
   if (days < 30) return `${days}d ago`;
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+
+/** Compact number for KPIs and axes: 1,284 / 12.9K / 4.2M. */
+export function formatCompact(value: string | number): string {
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Math.abs(n) < 10_000) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+}

@@ -15,6 +15,12 @@ export function SiteNav() {
           How it works
         </Link>
         <Link
+          href="/stats"
+          className="hidden text-sm tracking-wide text-luz-tenue/70 transition-colors hover:text-agua sm:block"
+        >
+          Stats
+        </Link>
+        <Link
           href="/app"
           className="rounded-[2px] bg-agua px-5 py-2 text-sm font-medium uppercase tracking-wide text-tierra transition-colors hover:bg-agua-palo"
         >
