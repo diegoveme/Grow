@@ -1,5 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsString, Max, Min, Matches } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsInt,
+  IsString,
+  Max,
+  Min,
+  Matches,
+  ValidateNested,
+} from 'class-validator';
 import { AMOUNT_REGEX, BPS_DENOMINATOR, STELLAR_ADDRESS_REGEX } from '@raiz/shared';
 
 export class SetSplitDto {
@@ -64,6 +75,65 @@ export class PayFromSavingsDto {
   @IsString()
   @Matches(AMOUNT_REGEX, { message: 'amount must be a decimal with up to 7 decimals' })
   amount!: string;
+}
+
+export class BatchPaymentDto {
+  @ApiProperty({ example: 'GMOM...' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  to!: string;
+
+  @ApiProperty({ example: '50.00' })
+  @IsString()
+  @Matches(AMOUNT_REGEX, { message: 'amount must be a decimal with up to 7 decimals' })
+  amount!: string;
+}
+
+export class SendBatchDto {
+  @ApiProperty({ example: 'GSENDER...' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  from!: string;
+
+  @ApiProperty({ type: [BatchPaymentDto], description: '1 to 10 payments, each split by its recipient' })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(10)
+  @ValidateNested({ each: true })
+  @Type(() => BatchPaymentDto)
+  payments!: BatchPaymentDto[];
+}
+
+export class ScheduleTermsDto {
+  @ApiProperty({ example: 'GSENDER...' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  from!: string;
+
+  @ApiProperty({ example: '50.00', description: 'USDC per run' })
+  @IsString()
+  @Matches(AMOUNT_REGEX, { message: 'amount must be a decimal with up to 7 decimals' })
+  amount!: string;
+
+  @ApiProperty({ example: 2592000, description: 'Seconds between runs (min 60)' })
+  @IsInt()
+  @Min(60)
+  intervalSecs!: number;
+
+  @ApiProperty({ example: 6, description: 'Number of runs (1 to 120)' })
+  @IsInt()
+  @Min(1)
+  @Max(120)
+  runs!: number;
+}
+
+export class CreateScheduleDto extends ScheduleTermsDto {
+  @ApiProperty({ example: 'GMOM...' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  to!: string;
+}
+
+export class ScheduleCallerDto {
+  @ApiProperty({ example: 'GANYONE...', description: 'Account that signs and pays the fee' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  caller!: string;
 }
 
 export class SubmitDto {

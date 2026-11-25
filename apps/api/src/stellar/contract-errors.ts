@@ -9,6 +9,10 @@ const SPLITTER_ERRORS: Record<number, string> = {
   5: 'This would put the recipient over the beta savings cap.',
   6: 'New deposits are paused right now. Withdrawals still work.',
   7: 'The savings cap must be greater than zero.',
+  8: 'That recurring remittance does not exist (it may have finished or been cancelled).',
+  9: 'That recurring remittance is not due yet.',
+  10: 'Recurring remittances need a positive amount, an interval of at least a minute and 1 to 120 runs.',
+  11: 'A batch needs between 1 and 10 payments.',
 };
 
 /** Stellar Asset Contract (USDC) error codes worth explaining to a user. */

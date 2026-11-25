@@ -8,13 +8,40 @@ import {
   type SplitterConfig,
 } from '@raiz/shared';
 import { SorobanService } from '../stellar/soroban.service';
-import { addressArg, i128, u32 } from '../stellar/scval';
+import { addressArg, i128, struct, u32, u64, vec } from '../stellar/scval';
 import type { AppConfig } from '../config/configuration';
 
 interface RawPosition {
   spendable_bps: number;
   savings: bigint;
 }
+
+interface RawSchedule {
+  from: string;
+  to: string;
+  amount: bigint;
+  interval: bigint;
+  next_at: bigint;
+  runs_left: number;
+}
+
+/** A recurring remittance, in display units. */
+export interface ScheduleView {
+  id: number;
+  from: string;
+  to: string;
+  amount: string;
+  intervalSecs: number;
+  nextAt: string;
+  runsLeft: number;
+}
+
+/** ~5 seconds per ledger on Stellar, for allowance lifetimes. */
+const SECONDS_PER_LEDGER = 5;
+/** Keep the allowance alive a day past the last scheduled run. */
+const ALLOWANCE_BUFFER_LEDGERS = 17_280;
+/** Allowances can't outlive the network's max entry TTL (~180 days on mainnet). */
+const MAX_ALLOWANCE_LEDGERS = 3_000_000;
 
 interface RawConfig {
   admin: string;
@@ -111,6 +138,84 @@ export class SplitsService {
       addressArg(to),
       i128(toStroops(amount)),
     ]);
+  }
+
+  /** One signature, several recipients; each payment split by its recipient. */
+  buildSendBatch(from: string, payments: { to: string; amount: string }[]): Promise<string> {
+    const items = payments.map((p) =>
+      struct({ to: addressArg(p.to), amount: i128(toStroops(p.amount)) }),
+    );
+    return this.soroban.buildInvocation(from, this.contractId(), 'send_batch', [
+      addressArg(from),
+      vec(items),
+    ]);
+  }
+
+  /**
+   * Token approve() so the contract can pull `amount * runs` for a schedule.
+   * The allowance lives until a day after the last run, capped at the
+   * network's max TTL; longer schedules need a fresh approve later.
+   */
+  async buildScheduleAllowance(
+    from: string,
+    amount: string,
+    runs: number,
+    intervalSecs: number,
+  ): Promise<string> {
+    const { latestLedger } = await this.soroban.server.getHealth();
+    const needed =
+      Math.ceil((intervalSecs * runs) / SECONDS_PER_LEDGER) + ALLOWANCE_BUFFER_LEDGERS;
+    const expiration = latestLedger + Math.min(needed, MAX_ALLOWANCE_LEDGERS);
+    const token = this.config.get('contracts', { infer: true }).usdcToken;
+    return this.soroban.buildInvocation(from, token, 'approve', [
+      addressArg(from),
+      addressArg(this.contractId()),
+      i128(toStroops(amount) * BigInt(runs)),
+      u32(expiration),
+    ]);
+  }
+
+  buildCreateSchedule(
+    from: string,
+    to: string,
+    amount: string,
+    intervalSecs: number,
+    runs: number,
+  ): Promise<string> {
+    return this.soroban.buildInvocation(from, this.contractId(), 'create_schedule', [
+      addressArg(from),
+      addressArg(to),
+      i128(toStroops(amount)),
+      u64(intervalSecs),
+      u32(runs),
+    ]);
+  }
+
+  /** Anyone can run a due schedule; `caller` only signs and pays the fee. */
+  buildRunSchedule(caller: string, id: number): Promise<string> {
+    return this.soroban.buildInvocation(caller, this.contractId(), 'run_schedule', [u64(id)]);
+  }
+
+  buildCancelSchedule(from: string, id: number): Promise<string> {
+    return this.soroban.buildInvocation(from, this.contractId(), 'cancel_schedule', [u64(id)]);
+  }
+
+  async getSchedule(id: number): Promise<ScheduleView | null> {
+    const raw = await this.soroban.readContract<RawSchedule | null>(
+      this.contractId(),
+      'schedule',
+      [u64(id)],
+    );
+    if (!raw) return null;
+    return {
+      id,
+      from: raw.from,
+      to: raw.to,
+      amount: fromStroops(BigInt(raw.amount), 7),
+      intervalSecs: Number(raw.interval),
+      nextAt: new Date(Number(raw.next_at) * 1000).toISOString(),
+      runsLeft: Number(raw.runs_left),
+    };
   }
 
   submit(signedXdr: string) {

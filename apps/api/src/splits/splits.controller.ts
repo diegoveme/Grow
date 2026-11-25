@@ -1,9 +1,21 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  ParseIntPipe,
+  Post,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BPS_DENOMINATOR } from '@raiz/shared';
 import { SplitsService } from './splits.service';
 import {
+  CreateScheduleDto,
   DepositSavingsDto,
+  ScheduleCallerDto,
+  ScheduleTermsDto,
+  SendBatchDto,
   PayFromSavingsDto,
   ReceiveDto,
   SetSplitDto,
@@ -47,6 +59,57 @@ export class SplitsController {
   @ApiOperation({ summary: 'Build an unsigned receive (send a split remittance) transaction' })
   async buildReceive(@Body() dto: ReceiveDto) {
     return { xdr: await this.splits.buildReceive(dto.from, dto.to, dto.amount) };
+  }
+
+  @Post('batch/build')
+  @ApiOperation({ summary: 'Build an unsigned send_batch: several recipients, one signature' })
+  async buildBatch(@Body() dto: SendBatchDto) {
+    return { xdr: await this.splits.buildSendBatch(dto.from, dto.payments) };
+  }
+
+  @Post('schedules/approve/build')
+  @ApiOperation({ summary: 'Build the token approve() a recurring remittance needs (amount x runs)' })
+  async buildScheduleAllowance(@Body() dto: ScheduleTermsDto) {
+    const xdr = await this.splits.buildScheduleAllowance(
+      dto.from,
+      dto.amount,
+      dto.runs,
+      dto.intervalSecs,
+    );
+    return { xdr };
+  }
+
+  @Post('schedules/build')
+  @ApiOperation({ summary: 'Build an unsigned create_schedule (recurring remittance)' })
+  async buildCreateSchedule(@Body() dto: CreateScheduleDto) {
+    const xdr = await this.splits.buildCreateSchedule(
+      dto.from,
+      dto.to,
+      dto.amount,
+      dto.intervalSecs,
+      dto.runs,
+    );
+    return { xdr };
+  }
+
+  @Get('schedules/:id')
+  @ApiOperation({ summary: 'A recurring remittance by id' })
+  async schedule(@Param('id', ParseIntPipe) id: number) {
+    const schedule = await this.splits.getSchedule(id);
+    if (!schedule) throw new NotFoundException(`Schedule ${id} not found or finished.`);
+    return schedule;
+  }
+
+  @Post('schedules/:id/run/build')
+  @ApiOperation({ summary: 'Build an unsigned run_schedule for a due recurring remittance' })
+  async buildRunSchedule(@Param('id', ParseIntPipe) id: number, @Body() dto: ScheduleCallerDto) {
+    return { xdr: await this.splits.buildRunSchedule(dto.caller, id) };
+  }
+
+  @Post('schedules/:id/cancel/build')
+  @ApiOperation({ summary: 'Build an unsigned cancel_schedule (sender only)' })
+  async buildCancelSchedule(@Param('id', ParseIntPipe) id: number, @Body() dto: ScheduleCallerDto) {
+    return { xdr: await this.splits.buildCancelSchedule(dto.caller, id) };
   }
 
   @Post('deposit/build')

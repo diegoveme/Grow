@@ -16,3 +16,28 @@ export function i128(value: bigint | number | string): xdr.ScVal {
 export function u32(value: number): xdr.ScVal {
   return nativeToScVal(value, { type: 'u32' });
 }
+
+/** A number or bigint as a u64 ScVal. */
+export function u64(value: number | bigint): xdr.ScVal {
+  return nativeToScVal(BigInt(value), { type: 'u64' });
+}
+
+/**
+ * A #[contracttype] struct as an ScVal map. Soroban requires map keys in
+ * sorted order, so fields are sorted by name here.
+ */
+export function struct(fields: Record<string, xdr.ScVal>): xdr.ScVal {
+  return xdr.ScVal.scvMap(
+    Object.keys(fields)
+      .sort()
+      .map(
+        (key) =>
+          new xdr.ScMapEntry({ key: nativeToScVal(key, { type: 'symbol' }), val: fields[key]! }),
+      ),
+  );
+}
+
+/** A list of ScVals as an ScVal vec. */
+export function vec(items: xdr.ScVal[]): xdr.ScVal {
+  return xdr.ScVal.scvVec(items);
+}
