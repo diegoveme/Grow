@@ -9,7 +9,8 @@
     "packages/*"
   ],
   "engines": {
-    "bun": ">=1.1.0"
+    "bun": ">=1.1.0",
+    "node": ">=22.12.0"
   },
   "scripts": {
     "web": "bun --filter @raiz/web dev",
