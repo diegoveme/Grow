@@ -47,6 +47,7 @@ Thumbs.db
 # AI assistant artifacts, never tracked
 # ─────────────────────────────────────────────────────────────
 .claude/
+.stellar-build/
 .cursor/
 .aider*
 CLAUDE.md
