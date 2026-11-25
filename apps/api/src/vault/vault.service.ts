@@ -69,15 +69,12 @@ export class VaultService {
     if (contracts.defindexVault && apiKey) {
       try {
         const sdk = await this.defindex();
-        // getVaultAPY returns { apy: number }; tolerate a bare number too.
-        const res = (await sdk.getVaultAPY(
-          contracts.defindexVault,
-          await this.defindexNetwork(),
-        )) as { apy?: number } | number;
-        const raw = typeof res === 'number' ? res : Number(res?.apy ?? 0);
-        // Normalize percent (e.g. 6.2) to a fraction (0.062) for the UI.
-        const apy = raw > 1 ? raw / 100 : raw;
-        return { apy, source: 'defindex' };
+        const res = await sdk.getVaultAPY(contracts.defindexVault, await this.defindexNetwork());
+        // The DeFindex API reports vault APY as a percentage (19.4 = 19.4%),
+        // while the UI works in fractions (0.194).
+        const percent = Number(res?.apy);
+        if (!Number.isFinite(percent)) throw new Error(`unexpected APY payload ${JSON.stringify(res)}`);
+        return { apy: percent / 100, source: 'defindex' };
       } catch (err) {
         this.logger.warn(`DeFindex APY failed, falling back to Blend: ${String(err)}`);
       }
@@ -85,27 +82,24 @@ export class VaultService {
     return { apy: await this.getBlendApy(), source: 'blend' };
   }
 
-  /** A recipient's vault position (principal, current value, APY, strategy). */
+  /** A depositor's vault position (current USDC value, APY, strategy). */
   async getPosition(user: string): Promise<VaultPosition> {
     const { contracts } = this.cfg();
     if (!contracts.defindexVault) {
       throw new ServiceUnavailableException('DEFINDEX_VAULT_ADDRESS is not configured.');
     }
     const sdk = await this.defindex();
-    const balance = (await sdk.getVaultBalance(
+    const balance = await sdk.getVaultBalance(
       contracts.defindexVault,
       user,
       await this.defindexNetwork(),
-    )) as unknown as Record<string, unknown>;
+    );
     const { apy } = await this.getApy();
-    const ub = balance.underlyingBalance ?? balance.totalBalance ?? balance.balance;
-    // DeFindex returns the balance in stroops (7 decimals) → to display units.
-    const raw = String(Array.isArray(ub) ? ub[0] ?? 0 : ub ?? 0).split('.')[0] || '0';
-    const current = fromStroops(BigInt(raw));
+    // underlyingBalance is per vault asset, in stroops; this vault holds USDC only.
+    const stroops = BigInt(Math.trunc(Number(balance.underlyingBalance?.[0] ?? 0)));
     return {
       vaultAddress: contracts.defindexVault,
-      principal: current,
-      currentValue: current,
+      currentValue: fromStroops(stroops, 7),
       apy,
       strategy: 'Blend USDC pool',
     };
@@ -130,17 +124,21 @@ export class VaultService {
     }
   }
 
-  /** Build an unsigned DeFindex withdraw transaction (XDR). */
-  async buildWithdraw(shares: string, caller: string): Promise<string> {
+  /**
+   * Build an unsigned DeFindex withdraw transaction (XDR) for `amount` USDC.
+   * Withdraws by underlying amount, so the user never has to think in vault
+   * shares (dfTokens), which are not 1:1 with USDC.
+   */
+  async buildWithdraw(amount: string, caller: string): Promise<string> {
     const { contracts } = this.cfg();
     if (!contracts.defindexVault) {
       throw new ServiceUnavailableException('DEFINDEX_VAULT_ADDRESS is not configured.');
     }
     const sdk = await this.defindex();
     try {
-      const res = await sdk.withdrawShares(
+      const res = await sdk.withdrawFromVault(
         contracts.defindexVault,
-        { shares: Number(toStroops(shares)), caller, slippageBps: 100 },
+        { amounts: [Number(toStroops(amount))], caller, slippageBps: 100 },
         await this.defindexNetwork(),
       );
       return this.extractXdr(res);
@@ -176,10 +174,9 @@ export class VaultService {
     return new DefindexSDK({ apiKey });
   }
 
-  /** DeFindex responses carry the unsigned tx under a few possible keys. */
-  private extractXdr(res: unknown): string {
-    const r = res as Record<string, string | undefined>;
-    const xdr = r.xdr ?? r.transaction ?? r.unsignedTransaction ?? r.envelope;
+  /** DeFindex transaction responses carry the unsigned tx in `xdr`. */
+  private extractXdr(res: { xdr: string | null }): string {
+    const xdr = res.xdr;
     if (!xdr) {
       throw new ServiceUnavailableException('DeFindex did not return a transaction to sign.');
     }

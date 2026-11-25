@@ -60,8 +60,6 @@ export interface Remittance {
 /** Vault metrics surfaced to the user. */
 export interface VaultPosition {
   vaultAddress: string;
-  /** Principal deposited (display units). */
-  principal: string;
   /** Current value including yield (display units). */
   currentValue: string;
   /** Annual percentage yield, as a fraction (0.06 = 6%). */
