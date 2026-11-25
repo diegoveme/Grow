@@ -2,6 +2,27 @@ import type { AssetCode } from "@raiz/shared";
 
 export type { AssetCode };
 
+/** A recurring remittance (GET /splits/schedules). */
+export interface ScheduleView {
+  id: number;
+  from: string;
+  to: string;
+  amount: string;
+  intervalSecs: number;
+  nextAt: string;
+  runsLeft: number;
+}
+
+/** A conditional remittance (GET /splits/pledges). */
+export interface PledgeView {
+  id: number;
+  from: string;
+  beneficiary: string;
+  payee: string;
+  amount: string;
+  expiresAt: string;
+}
+
 export interface SplitPreview {
   amount: string;
   spendableBps: number;

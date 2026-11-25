@@ -43,3 +43,15 @@ export function formatCompact(value: string | number): string {
   if (Math.abs(n) < 10_000) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
+
+/** Compact time until a future moment, e.g. "in 3m", "in 2h", "in 5d", or "now". */
+export function timeUntil(iso: string): string {
+  const secs = Math.floor((new Date(iso).getTime() - Date.now()) / 1000);
+  if (Number.isNaN(secs) || secs <= 0) return "now";
+  if (secs < 60) return `in ${secs}s`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `in ${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 48) return `in ${hours}h`;
+  return `in ${Math.floor(hours / 24)}d`;
+}
