@@ -1,6 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
+import { Address, rpc, scValToNative, xdr } from '@stellar/stellar-sdk';
+import {
+  BPS_DENOMINATOR,
   DEFAULT_SPLIT,
   applySplit,
   fromStroops,
@@ -9,7 +17,8 @@ import {
   type RemittanceStatus,
 } from '@raiz/shared';
 import { DatabaseService } from '../database/database.service';
-import { CreateRemittanceDto } from './dto';
+import { StellarService } from '../stellar/stellar.service';
+import type { AppConfig } from '../config/configuration';
 
 interface RemittanceRow {
   id: string;
@@ -25,73 +34,71 @@ interface RemittanceRow {
 }
 
 /**
- * Tracks remittances as they move through the Raíz pipeline. Persists to
- * Supabase (Postgres) when configured, otherwise keeps an in-memory map so the
- * API works in any environment. The chain remains the source of truth for
- * balances; this stores the off-chain timeline the UI renders.
+ * Off-chain timeline of remittances sent through the `yield_splitter`
+ * contract. Nothing is recorded on the client's word: a remittance is stored
+ * only after its transaction is found on-chain as a successful `receive` call
+ * on our contract, and every field comes from that transaction.
+ *
+ * Persists to Supabase (Postgres) when configured, otherwise in memory.
  */
 @Injectable()
 export class RemittancesService {
   private readonly memory = new Map<string, Remittance>();
 
-  constructor(private readonly db: DatabaseService) {}
+  constructor(
+    private readonly db: DatabaseService,
+    private readonly stellar: StellarService,
+    private readonly config: ConfigService<AppConfig, true>,
+  ) {}
 
-  /** Compute the spendable/vault breakdown for an amount without persisting. */
+  /** Compute the spendable/savings breakdown for an amount without persisting. */
   preview(amount: string, spendableBps: number = DEFAULT_SPLIT.spendableBps) {
-    const stroops = toStroops(amount);
-    const { spendable, vault } = applySplit(stroops, spendableBps);
+    const { spendable, vault } = applySplit(toStroops(amount), spendableBps);
     return {
       amount,
       spendableBps,
-      vaultBps: 10000 - spendableBps,
-      spendable: fromStroops(spendable),
-      vault: fromStroops(vault),
+      vaultBps: BPS_DENOMINATOR - spendableBps,
+      spendable: fromStroops(spendable, 7),
+      vault: fromStroops(vault, 7),
     };
   }
 
-  async create(dto: CreateRemittanceDto): Promise<Remittance> {
-    const spendableBps = dto.spendableBps ?? DEFAULT_SPLIT.spendableBps;
-    const remittance: Remittance = {
-      id: randomUUID(),
-      from: dto.from,
-      to: dto.to,
-      amount: dto.amount,
-      asset: 'USDC',
-      status: 'pending',
-      split: { spendableBps, vaultBps: 10000 - spendableBps },
-      createdAt: new Date().toISOString(),
-    };
+  /** Record a remittance from the hash of its on-chain `receive` transaction. */
+  async record(txHash: string): Promise<Remittance> {
+    const hash = txHash.toLowerCase();
+    const existing = await this.findByHash(hash);
+    if (existing) return existing;
 
+    const remittance = await this.fromChain(hash);
     if (this.db.enabled) {
       await this.db.sql`
         insert into remittances
-          (id, from_address, to_address, amount, asset, status, spendable_bps, vault_bps, created_at)
+          (id, from_address, to_address, amount, asset, status, spendable_bps, vault_bps,
+           tx_hash, created_at)
         values
           (${remittance.id}, ${remittance.from}, ${remittance.to}, ${remittance.amount},
-           ${remittance.asset}, ${remittance.status}, ${spendableBps}, ${10000 - spendableBps},
-           ${remittance.createdAt})
+           ${remittance.asset}, ${remittance.status}, ${remittance.split.spendableBps},
+           ${remittance.split.vaultBps}, ${hash}, ${remittance.createdAt})
+        on conflict (tx_hash) do nothing
       `;
-    } else {
-      this.memory.set(remittance.id, remittance);
+      return (await this.findByHash(hash)) ?? remittance;
     }
+    this.memory.set(remittance.id, remittance);
     return remittance;
   }
 
-  async list(address?: string): Promise<Remittance[]> {
+  async list(address: string): Promise<Remittance[]> {
     if (this.db.enabled) {
-      const rows = address
-        ? await this.db.sql<RemittanceRow[]>`
-            select * from remittances
-            where from_address = ${address} or to_address = ${address}
-            order by created_at desc`
-        : await this.db.sql<RemittanceRow[]>`
-            select * from remittances order by created_at desc`;
+      const rows = await this.db.sql<RemittanceRow[]>`
+        select * from remittances
+        where from_address = ${address} or to_address = ${address}
+        order by created_at desc
+        limit 100`;
       return rows.map(toRemittance);
     }
-    const all = [...this.memory.values()].sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt),
-    );
-    return address ? all.filter((r) => r.from === address || r.to === address) : all;
+    return [...this.memory.values()]
+      .filter((r) => r.from === address || r.to === address)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   async get(id: string): Promise<Remittance> {
@@ -106,25 +113,75 @@ export class RemittancesService {
     return remittance;
   }
 
-  async updateStatus(
-    id: string,
-    status: RemittanceStatus,
-    txHash?: string,
-  ): Promise<Remittance> {
+  private async findByHash(hash: string): Promise<Remittance | undefined> {
     if (this.db.enabled) {
       const [row] = await this.db.sql<RemittanceRow[]>`
-        update remittances
-        set status = ${status}, tx_hash = coalesce(${txHash ?? null}, tx_hash)
-        where id = ${id}
-        returning *`;
-      if (!row) throw new NotFoundException(`Remittance ${id} not found`);
-      return toRemittance(row);
+        select * from remittances where tx_hash = ${hash} limit 1`;
+      return row ? toRemittance(row) : undefined;
     }
-    const remittance = await this.get(id);
-    remittance.status = status;
-    if (txHash) remittance.txHash = txHash;
-    this.memory.set(id, remittance);
-    return remittance;
+    return [...this.memory.values()].find((r) => r.txHash === hash);
+  }
+
+  /** Load the transaction and check it is a successful `receive` on our contract. */
+  private async fromChain(hash: string): Promise<Remittance> {
+    const splitter = this.config.get('contracts', { infer: true }).yieldSplitter;
+    if (!splitter) {
+      throw new ServiceUnavailableException('YIELD_SPLITTER_CONTRACT_ID is not configured.');
+    }
+
+    const tx = await this.stellar.server.getTransaction(hash);
+    if (tx.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
+      throw new BadRequestException(
+        tx.status === rpc.Api.GetTransactionStatus.NOT_FOUND
+          ? 'Transaction not found yet. Try again in a few seconds.'
+          : 'That transaction failed on-chain, so there is nothing to record.',
+      );
+    }
+
+    const call = invokedContract(tx.envelopeXdr);
+    if (!call || call.contract !== splitter || call.fn !== 'receive' || call.args.length !== 3) {
+      throw new BadRequestException('That transaction is not a Grow remittance.');
+    }
+    const [from, to, amount] = call.args.map((a) => scValToNative(a)) as [string, string, bigint];
+    const [spendable] = (tx.returnValue ? scValToNative(tx.returnValue) : [0n]) as [bigint];
+    const spendableBps =
+      amount > 0n ? Number((BigInt(spendable) * BigInt(BPS_DENOMINATOR)) / BigInt(amount)) : 0;
+
+    return {
+      id: randomUUID(),
+      from,
+      to,
+      amount: fromStroops(BigInt(amount), 7),
+      asset: 'USDC',
+      status: 'completed',
+      split: { spendableBps, vaultBps: BPS_DENOMINATOR - spendableBps },
+      createdAt: new Date(tx.createdAt * 1000).toISOString(),
+      txHash: hash,
+    };
+  }
+}
+
+/** The contract call inside a single-operation Soroban transaction, if any. */
+function invokedContract(
+  envelope: xdr.TransactionEnvelope,
+): { contract: string; fn: string; args: xdr.ScVal[] } | undefined {
+  try {
+    const inner =
+      envelope.switch() === xdr.EnvelopeType.envelopeTypeTxFeeBump()
+        ? envelope.feeBump().tx().innerTx().v1().tx()
+        : envelope.v1().tx();
+    const [op] = inner.operations();
+    if (!op || op.body().switch() !== xdr.OperationType.invokeHostFunction()) return undefined;
+    const fn = op.body().invokeHostFunctionOp().hostFunction();
+    if (fn.switch() !== xdr.HostFunctionType.hostFunctionTypeInvokeContract()) return undefined;
+    const invoke = fn.invokeContract();
+    return {
+      contract: Address.fromScAddress(invoke.contractAddress()).toString(),
+      fn: invoke.functionName().toString(),
+      args: invoke.args(),
+    };
+  } catch {
+    return undefined;
   }
 }
 

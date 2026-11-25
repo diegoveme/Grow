@@ -1,4 +1,4 @@
--- Raíz · Supabase/Postgres schema
+-- Grow · Supabase/Postgres schema
 -- Off-chain metadata for remittances moving through the pipeline. The chain is
 -- the source of truth for balances; this table powers the dashboard timeline.
 
@@ -18,3 +18,5 @@ create table if not exists remittances (
 create index if not exists remittances_to_idx on remittances (to_address);
 create index if not exists remittances_from_idx on remittances (from_address);
 create index if not exists remittances_created_idx on remittances (created_at desc);
+-- One row per on-chain transaction; also the ON CONFLICT target for inserts.
+create unique index if not exists remittances_tx_hash_key on remittances (tx_hash);
