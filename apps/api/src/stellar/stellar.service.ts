@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   Account,
@@ -18,6 +23,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { type AssetCode } from '@raiz/shared';
 import type { AppConfig } from '../config/configuration';
+import { contractFailures, describeFailure } from './contract-errors';
 
 /** A throwaway account used only to assemble read-only simulations. */
 const SIMULATION_SOURCE = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
@@ -60,6 +66,8 @@ export class StellarService {
   readonly networkPassphrase: string;
   private readonly usdcCode: string;
   private readonly usdcIssuer: string;
+  private readonly isTestnet: boolean;
+  private readonly contractIds: { splitter?: string; token?: string };
 
   constructor(private readonly config: ConfigService<AppConfig, true>) {
     const rpcUrl = this.config.get('sorobanRpcUrl', { infer: true });
@@ -72,6 +80,9 @@ export class StellarService {
     const usdc = this.config.get('usdc', { infer: true });
     this.usdcCode = usdc.code;
     this.usdcIssuer = usdc.issuer;
+    this.isTestnet = this.networkPassphrase === Networks.TESTNET;
+    const contracts = this.config.get('contracts', { infer: true });
+    this.contractIds = { splitter: contracts.yieldSplitter, token: contracts.usdcToken };
   }
 
   get server(): rpc.Server {
@@ -125,13 +136,16 @@ export class StellarService {
       .setTimeout(30)
       .build();
 
-    const sim = await this.rpcServer.simulateTransaction(tx);
+    const sim = await this.rpcServer.simulateTransaction(tx).catch((err: unknown) => {
+      throw new ServiceUnavailableException(`Soroban RPC unavailable: ${String(err)}`);
+    });
     if (rpc.Api.isSimulationError(sim)) {
-      throw new Error(`Simulation failed for ${method}: ${sim.error}`);
+      this.logger.warn(`read ${method} failed: ${sim.error.split('\n')[0]}`);
+      throw new ServiceUnavailableException(`Could not read ${method} from the contract.`);
     }
     const retval = sim.result?.retval;
     if (!retval) {
-      throw new Error(`No return value for ${method}`);
+      throw new ServiceUnavailableException(`The contract returned nothing for ${method}.`);
     }
     return scValToNative(retval) as T;
   }
@@ -147,7 +161,10 @@ export class StellarService {
     method: string,
     args: xdr.ScVal[] = [],
   ): Promise<string> {
-    const account = await this.rpcServer.getAccount(sourceAddress);
+    const account = await this.rpcServer.getAccount(sourceAddress).catch((err: unknown) => {
+      if (/not found/i.test(String(err))) throw new BadRequestException(this.unfundedMessage());
+      throw err;
+    });
     const contract = new Contract(contractId);
     const tx = new TransactionBuilder(account, {
       fee: '1000000',
@@ -156,29 +173,47 @@ export class StellarService {
       .addOperation(contract.call(method, ...args))
       .setTimeout(120)
       .build();
-    const prepared = await this.rpcServer.prepareTransaction(tx);
-    return prepared.toXDR();
+
+    // Simulate ourselves (instead of prepareTransaction) so a contract error
+    // reaches the user as a readable message rather than a 500.
+    const sim = await this.rpcServer.simulateTransaction(tx);
+    if (rpc.Api.isSimulationError(sim)) {
+      const failures = contractFailures(sim.events);
+      this.logger.warn(`simulate ${method} failed: ${sim.error.split('\n')[0]}`);
+      throw new BadRequestException(describeFailure(failures, sim.error, this.contractIds));
+    }
+    return rpc.assembleTransaction(tx, sim).build().toXDR();
   }
 
-  /** Submit a signed transaction (base64 XDR) and return the hash once applied. */
+  /**
+   * Submit a signed Soroban transaction (base64 XDR) and wait for it to land.
+   * Throws if the network rejects it or it fails on-chain; returns status
+   * `SUCCESS`, or `NOT_FOUND` if it is still pending after ~30s.
+   */
   async submit(signedXdr: string): Promise<{ hash: string; status: string }> {
     const tx = TransactionBuilder.fromXDR(signedXdr, this.networkPassphrase);
     const sent = await this.rpcServer.sendTransaction(tx);
     if (sent.status === 'ERROR') {
-      throw new Error(`Submit failed: ${JSON.stringify(sent.errorResult)}`);
+      const code = sent.errorResult?.result().switch().name ?? 'unknown';
+      throw new BadRequestException(`The network rejected the transaction (${code}).`);
     }
-    // Poll until the transaction is out of pending.
+    if (sent.status === 'TRY_AGAIN_LATER') {
+      throw new ServiceUnavailableException('The network is busy. Try again in a few seconds.');
+    }
     let result = await this.rpcServer.getTransaction(sent.hash);
-    for (let i = 0; i < 15 && result.status === 'NOT_FOUND'; i++) {
+    for (let i = 0; i < 30 && result.status === 'NOT_FOUND'; i++) {
       await new Promise((r) => setTimeout(r, 1000));
       result = await this.rpcServer.getTransaction(sent.hash);
+    }
+    if (result.status === 'FAILED') {
+      throw new BadRequestException(`The transaction failed on-chain (${sent.hash}).`);
     }
     return { hash: sent.hash, status: result.status };
   }
 
   /** Fund a testnet account via friendbot (no-op on public network). */
   async fundTestnet(address: string): Promise<boolean> {
-    if (this.networkPassphrase !== Networks.TESTNET) return false;
+    if (!this.isTestnet) return false;
     try {
       const res = await fetch(`https://friendbot.stellar.org/?addr=${address}`);
       return res.ok;
@@ -362,13 +397,15 @@ export class StellarService {
       const acc = await this.horizonServer.loadAccount(address);
       return new Account(acc.accountId(), acc.sequenceNumber());
     } catch (err) {
-      if (this.isNotFound(err)) {
-        throw new BadRequestException(
-          'Your account is not funded yet. Use “Fund testnet XLM” first.',
-        );
-      }
+      if (this.isNotFound(err)) throw new BadRequestException(this.unfundedMessage());
       throw err;
     }
+  }
+
+  private unfundedMessage(): string {
+    return this.isTestnet
+      ? 'Your account is not funded yet. Use “Fund testnet XLM” first.'
+      : 'Your account is not activated yet. Send it some XLM first.';
   }
 
   private isNotFound(err: unknown): boolean {
