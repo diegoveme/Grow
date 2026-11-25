@@ -9,7 +9,7 @@ import { fromStroops, toStroops, type VaultPosition } from '@raiz/shared';
 import type { AppConfig } from '../config/configuration';
 
 /**
- * Yield layer. Reads APY from Blend (directly, via RPC — no key needed) and
+ * Yield layer. Reads APY from Blend (directly, via RPC, no key needed) and
  * builds DeFindex vault deposit/withdraw transactions (DeFindex's SDK is
  * API-backed and returns unsigned XDR, so the API key stays server-side here
  * and the wallet signs in the browser).
@@ -153,7 +153,7 @@ export class VaultService {
     const net = this.cfg().network === 'PUBLIC' ? 'mainnet' : 'testnet';
     if (/missing value|non-existing|MissingValue/i.test(msg)) {
       throw new BadRequestException(
-        `This DeFindex vault isn't deployed on ${net}. Vaults run on mainnet — set a ${net} ` +
+        `This DeFindex vault isn't deployed on ${net}. Vaults run on mainnet: set a ${net} ` +
           `vault in DEFINDEX_VAULT_ADDRESS, or move the app to PUBLIC to use it.`,
       );
     }

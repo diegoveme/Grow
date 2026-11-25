@@ -46,7 +46,7 @@ export class AnchorService {
     };
   }
 
-  /** SEP-10 step 1 — fetch the challenge transaction for the user to sign. */
+  /** SEP-10 step 1: fetch the challenge transaction for the user to sign. */
   async challenge(account: string): Promise<{ transaction: string; networkPassphrase: string }> {
     const { webAuth } = await this.info();
     const res = await fetch(`${webAuth}?account=${encodeURIComponent(account)}`);
@@ -57,7 +57,7 @@ export class AnchorService {
     return { transaction: body.transaction, networkPassphrase: body.network_passphrase };
   }
 
-  /** SEP-10 step 2 — exchange the signed challenge for a JWT. */
+  /** SEP-10 step 2: exchange the signed challenge for a JWT. */
   async token(signedXdr: string): Promise<{ token: string }> {
     const { webAuth } = await this.info();
     const res = await fetch(webAuth, {
@@ -71,12 +71,12 @@ export class AnchorService {
     return (await res.json()) as { token: string };
   }
 
-  /** SEP-24 — start an interactive deposit; returns the popup url + tx id. */
+  /** SEP-24: start an interactive deposit; returns the popup url + tx id. */
   async deposit(jwt: string, assetCode: string, account: string) {
     return this.interactive('deposit', jwt, assetCode, account);
   }
 
-  /** SEP-24 — start an interactive withdrawal. */
+  /** SEP-24: start an interactive withdrawal. */
   async withdraw(jwt: string, assetCode: string, account: string) {
     return this.interactive('withdraw', jwt, assetCode, account);
   }
@@ -99,7 +99,7 @@ export class AnchorService {
     return (await res.json()) as { url: string; id: string; type: string };
   }
 
-  /** SEP-24 — poll a transaction's status. */
+  /** SEP-24: poll a transaction's status. */
   async transaction(jwt: string, id: string) {
     const { transferServer } = await this.info();
     const res = await fetch(`${transferServer}/transaction?id=${encodeURIComponent(id)}`, {

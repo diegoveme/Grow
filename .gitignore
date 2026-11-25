@@ -44,7 +44,7 @@ Thumbs.db
 *.log
 
 # ─────────────────────────────────────────────────────────────
-# AI assistant artifacts — never tracked
+# AI assistant artifacts, never tracked
 # ─────────────────────────────────────────────────────────────
 .claude/
 .cursor/

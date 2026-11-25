@@ -1,4 +1,4 @@
-# Bun configuration for the Raíz monorepo
+# Bun configuration for the Grow monorepo
 [install]
 # Use exact-ish ranges from package.json; hoist workspace deps
 peer = true

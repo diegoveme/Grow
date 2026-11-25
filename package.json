@@ -2,7 +2,7 @@
   "name": "raiz",
   "version": "0.1.0",
   "private": true,
-  "description": "Raíz — PayFi remittances on Stellar with automatic yield (Blend + DeFindex)",
+  "description": "Grow: PayFi remittances on Stellar with on-chain savings and yield (DeFindex + Blend)",
   "license": "MIT",
   "workspaces": [
     "apps/*",

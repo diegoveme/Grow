@@ -1,23 +1,23 @@
 @import "tailwindcss";
 
 /*
- * Grow design system — "your money takes root and grows".
+ * Grow design system: "your money takes root and grows".
  * Light, organic palette taken from the Grow logo: warm paper cream as the
  * canvas, ink-black for type, and leaf green as the living accent, with an
  * earthy ochre for yield. Token names are kept stable so existing utilities
  * (`bg-tierra`, `text-agua`, `text-oro`, `text-luz`…) re-theme in one place.
  */
 @theme {
-  --color-tierra: #ebe5d4; /* paper — base background */
-  --color-tierra-mid: #f6f1e5; /* raised paper — cards / panels */
-  --color-semilla: #ded5c0; /* seed — borders / nodes */
-  --color-musgo: #2c552c; /* moss — deep green */
-  --color-brote: #4f9a4a; /* sprout — success / growth accent */
-  --color-agua: #3a7d3f; /* leaf — primary action (green) */
-  --color-agua-palo: #57a35c; /* light leaf — hover */
-  --color-luz: #1c1b16; /* ink — primary text */
-  --color-luz-tenue: #595345; /* soft ink — secondary text */
-  --color-oro: #a97e2b; /* ochre — yield / earnings */
+  --color-tierra: #ebe5d4; /* paper: base background */
+  --color-tierra-mid: #f6f1e5; /* raised paper: cards / panels */
+  --color-semilla: #ded5c0; /* seed: borders / nodes */
+  --color-musgo: #2c552c; /* moss: deep green */
+  --color-brote: #4f9a4a; /* sprout: success / growth accent */
+  --color-agua: #3a7d3f; /* leaf: primary action (green) */
+  --color-agua-palo: #57a35c; /* light leaf: hover */
+  --color-luz: #1c1b16; /* ink: primary text */
+  --color-luz-tenue: #595345; /* soft ink: secondary text */
+  --color-oro: #a97e2b; /* ochre: yield / earnings */
 
   --font-display: var(--font-playfair), Georgia, serif;
   --font-body: var(--font-inter), system-ui, sans-serif;
@@ -74,7 +74,7 @@ body {
 /*
  * Roots growing upward from the bottom of the hero, on a continuous loop. Each
  * path draws itself from base to tip (stroke-dashoffset → 0), holds, then fades
- * out and regrows — so the roots are always visibly rising. The dash reset
+ * out and regrows, so the roots are always visibly rising. The dash reset
  * happens while opacity is 0, so the loop never "snaps".
  */
 @keyframes grow-loop {

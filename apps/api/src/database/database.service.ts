@@ -48,7 +48,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     const db = this.config.get('database', { infer: true });
 
-    // Prefer individual vars (password passed raw — no URL-encoding needed for
+    // Prefer individual vars (password passed raw, no URL-encoding needed for
     // @, spaces, etc.), falling back to a full DATABASE_URL.
     let conn: ConnectionParts | undefined;
     if (db.host && db.password) {
@@ -65,7 +65,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
     if (!conn) {
       this.logger.warn(
-        'No database configured (set DATABASE_HOST + DATABASE_PASSWORD, or DATABASE_URL) — using in-memory storage.',
+        'No database configured (set DATABASE_HOST + DATABASE_PASSWORD, or DATABASE_URL), using in-memory storage.',
       );
       return;
     }

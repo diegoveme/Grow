@@ -11,7 +11,7 @@ type Status = "idle" | "authenticating" | "interactive" | "polling" | "done" | "
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Validate a SEP-10 challenge before the wallet signs it — never sign a server
+ * Validate a SEP-10 challenge before the wallet signs it: never sign a server
  * transaction blindly. Asserts it is a real auth challenge: right network, the
  * anchor's signing key as source, sequence 0, and a `<home_domain> auth`
  * manage_data op whose source is this user. Throws if anything is off.
@@ -116,7 +116,7 @@ export function AnchorPanel() {
     <Card>
       <CardLabel>Cash in / out · anchor (SEP-24)</CardLabel>
       <p className="mb-4 text-sm opacity-55">
-        Fund your wallet from fiat, or cash out a remittance — through a Stellar anchor (SEP-10
+        Fund your wallet from fiat, or cash out a remittance, through a Stellar anchor (SEP-10
         auth + SEP-24 interactive). Uses the testnet reference anchor.
       </p>
 

@@ -1,7 +1,7 @@
 {
   "name": "@raiz/api",
   "version": "0.1.0",
-  "description": "Raíz API — Stellar anchor (SEP-10/24), splits and vault orchestration",
+  "description": "Grow API: Stellar anchor (SEP-10/24), splits and vault orchestration",
   "author": "",
   "private": true,
   "license": "MIT",

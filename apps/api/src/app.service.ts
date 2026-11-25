@@ -13,7 +13,7 @@ export class AppService {
   health() {
     const contracts = this.config.get('contracts', { infer: true });
     return {
-      name: 'raiz-api',
+      name: 'grow-api',
       status: 'ok',
       network: this.config.get('network', { infer: true }),
       database: this.db.enabled ? 'supabase' : 'memory',

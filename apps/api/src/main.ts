@@ -13,7 +13,7 @@ async function bootstrap() {
   });
 
   const swagger = new DocumentBuilder()
-    .setTitle('Raíz API')
+    .setTitle('Grow API')
     .setDescription('Stellar anchor (SEP-10/24), remittance splits and yield vault orchestration')
     .setVersion('0.1.0')
     .build();
@@ -24,6 +24,6 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? process.env.API_PORT ?? 3001);
   await app.listen(port, '0.0.0.0');
   // eslint-disable-next-line no-console
-  console.log(`🌱 Raíz API listening on port ${port} (/api)`);
+  console.log(`🌱 Grow API listening on port ${port} (/api)`);
 }
 bootstrap();

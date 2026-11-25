@@ -1,6 +1,6 @@
 [package]
 name = "yield-splitter"
-description = "Raíz yield splitter — splits incoming USDC remittances between spendable and a yield vault"
+description = "Grow yield splitter: splits incoming USDC remittances between the recipient wallet and on-chain savings"
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }

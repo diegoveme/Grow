@@ -128,7 +128,7 @@ export class StellarService {
 
   /**
    * Simulate a read-only contract call and return the decoded native value.
-   * No signing or submission — pure view access via the Soroban RPC.
+   * No signing or submission, pure view access via the Soroban RPC.
    */
   async readContract<T = unknown>(
     contractId: string,

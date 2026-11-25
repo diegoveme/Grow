@@ -28,7 +28,7 @@ export function isValidAmount(value: string): boolean {
   return AMOUNT_REGEX.test(value);
 }
 
-/** Assets Raíz moves today. Classic issuers are resolved at the app layer. */
+/** Assets Grow moves today. Classic issuers are resolved at the app layer. */
 export const ASSET_CODES = ['XLM', 'USDC'] as const;
 export type AssetCode = (typeof ASSET_CODES)[number];
 

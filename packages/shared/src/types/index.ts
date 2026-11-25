@@ -1,4 +1,4 @@
-/** Domain types shared across the Raíz web app and API. */
+/** Domain types shared across the Grow web app and API. */
 
 /** A configurable split of incoming funds between spendable and vault. */
 export interface SplitConfig {
@@ -39,7 +39,7 @@ export type RemittanceStatus =
   | 'completed'
   | 'failed';
 
-/** A single remittance moving through the Raíz pipeline. */
+/** A single remittance moving through the Grow pipeline. */
 export interface Remittance {
   id: string;
   /** Sender public key or external reference. */
