@@ -5,6 +5,7 @@ export type SplitterEventType =
   | 'funds_received'
   | 'savings_deposited'
   | 'savings_withdrawn'
+  | 'savings_spent'
   | 'split_set'
   | 'user_cap_set'
   | 'paused_set';
@@ -42,6 +43,7 @@ const KNOWN = new Set<SplitterEventType>([
   'funds_received',
   'savings_deposited',
   'savings_withdrawn',
+  'savings_spent',
   'split_set',
   'user_cap_set',
   'paused_set',

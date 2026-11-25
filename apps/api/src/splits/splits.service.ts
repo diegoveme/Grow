@@ -98,6 +98,14 @@ export class SplitsService {
     ]);
   }
 
+  buildPayFromSavings(user: string, to: string, amount: string): Promise<string> {
+    return this.soroban.buildInvocation(user, this.contractId(), 'pay_from_savings', [
+      addressArg(user),
+      addressArg(to),
+      i128(toStroops(amount)),
+    ]);
+  }
+
   buildWithdrawSavings(to: string, amount: string): Promise<string> {
     return this.soroban.buildInvocation(to, this.contractId(), 'withdraw_savings', [
       addressArg(to),

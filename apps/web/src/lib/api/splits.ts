@@ -17,6 +17,9 @@ export const splitsApi = {
     post<{ xdr: string }>("/splits/receive/build", { from, to, amount }),
   buildDepositSavings: (user: string, amount: string) =>
     post<{ xdr: string }>("/splits/deposit/build", { user, amount }),
+  /** Pay `to` straight out of `user`'s savings. */
+  buildPayFromSavings: (user: string, to: string, amount: string) =>
+    post<{ xdr: string }>("/splits/pay/build", { user, to, amount }),
   buildWithdrawSavings: (to: string, amount: string) =>
     post<{ xdr: string }>("/splits/withdraw/build", { to, amount }),
   submitSoroban: (signedXdr: string) =>

@@ -16,6 +16,7 @@ export interface PublicStats {
   savedFromRemittances: string;
   setAside: string;
   withdrawn: string;
+  paidFromSavings: string;
   uniqueSenders: number;
   uniqueRecipients: number;
   savingsHeld: string | null;

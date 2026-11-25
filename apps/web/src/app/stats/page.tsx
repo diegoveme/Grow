@@ -60,6 +60,7 @@ export default function StatsPage() {
                 <Row label="Saved from remittances" value={stats.savedFromRemittances} />
                 <Row label="Set aside by recipients" value={stats.setAside} />
                 <Row label="Withdrawn from savings" value={stats.withdrawn} />
+                <Row label="Paid to others from savings" value={stats.paidFromSavings} />
               </dl>
             </Card>
 

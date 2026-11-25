@@ -53,6 +53,7 @@ describe('summarize', () => {
     received(bob, 200_000_000n, '2026-11-25T11:00:00Z'),
     raw('savings_deposited', bob, { amount: 100_000_000n, total: 160_000_000n }, '2026-11-25T12:00:00Z'),
     raw('savings_withdrawn', alice, { amount: 300_000_000n, remaining: 150_000_000n }, '2026-11-25T13:00:00Z'),
+    raw('savings_spent', bob, { to: alice, amount: 50_000_000n, remaining: 110_000_000n }, '2026-11-25T14:00:00Z'),
   ]
     .map(decodeEvent)
     .filter((e): e is SplitterEvent => e !== null);
@@ -65,6 +66,7 @@ describe('summarize', () => {
     expect(s.savedFromRemittances).toBe('51.0000000');
     expect(s.setAside).toBe('10.0000000');
     expect(s.withdrawn).toBe('30.0000000');
+    expect(s.paidFromSavings).toBe('5.0000000');
   });
 
   it('counts unique people and groups volume by day', () => {

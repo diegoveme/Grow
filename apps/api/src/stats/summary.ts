@@ -22,6 +22,8 @@ export interface UsageSummary {
   setAside: string;
   /** USDC withdrawn from savings. */
   withdrawn: string;
+  /** USDC recipients paid to third parties straight from savings. */
+  paidFromSavings: string;
   uniqueSenders: number;
   uniqueRecipients: number;
   /** Ledger close time of the first and last counted event. */
@@ -40,6 +42,7 @@ export function summarize(events: SplitterEvent[], days = 30): UsageSummary {
   let saved = 0n;
   let setAside = 0n;
   let withdrawn = 0n;
+  let paidFromSavings = 0n;
   const senders = new Set<string>();
   const recipients = new Set<string>();
   const perDay = new Map<string, { remittances: number; volume: bigint }>();
@@ -70,6 +73,9 @@ export function summarize(events: SplitterEvent[], days = 30): UsageSummary {
       case 'savings_withdrawn':
         withdrawn += big(e.amount);
         break;
+      case 'savings_spent':
+        paidFromSavings += big(e.amount);
+        break;
       default:
         break;
     }
@@ -87,6 +93,7 @@ export function summarize(events: SplitterEvent[], days = 30): UsageSummary {
     savedFromRemittances: fromStroops(saved, 7),
     setAside: fromStroops(setAside, 7),
     withdrawn: fromStroops(withdrawn, 7),
+    paidFromSavings: fromStroops(paidFromSavings, 7),
     uniqueSenders: senders.size,
     uniqueRecipients: recipients.size,
     firstEventAt: first,
