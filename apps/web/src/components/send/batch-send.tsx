@@ -12,6 +12,7 @@ import { formatUsd } from "@/lib/format";
 import { useAccount } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
+import { useT } from "@/lib/i18n";
 
 const MAX_PEOPLE = 10;
 
@@ -28,6 +29,7 @@ const emptyRow = (): Row => ({ to: "", amount: "" });
  */
 export function BatchSend() {
   const { address } = useWallet();
+  const t = useT();
   const { data: info, refresh } = useAccount(address);
   const tx = useTx();
   const [rows, setRows] = useState<Row[]>([emptyRow(), emptyRow()]);
@@ -55,14 +57,14 @@ export function BatchSend() {
   return (
     <Card>
       <p className="mb-4 text-sm opacity-55">
-        Pay up to {MAX_PEOPLE} people in one go. Each one receives according to their own split.
+        {t.send.batchIntro(MAX_PEOPLE)}
       </p>
 
       <div className="space-y-3">
         {rows.map((row, i) => (
           <div key={i} className="flex gap-2">
             <div className="flex-1">
-              <Field label={`Person ${i + 1}`}>
+              <Field label={t.send.person(i + 1)}>
                 <TextInput
                   value={row.to}
                   onChange={(e) => update(i, { to: e.target.value.trim() })}
@@ -80,7 +82,7 @@ export function BatchSend() {
             {rows.length > 1 && (
               <button
                 type="button"
-                aria-label={`Remove person ${i + 1}`}
+                aria-label={t.send.removePerson(i + 1)}
                 onClick={() => setRows((r) => r.filter((_, j) => j !== i))}
                 className="mt-6 px-2 text-luz-tenue/60 hover:text-oro"
               >
@@ -97,20 +99,20 @@ export function BatchSend() {
           onClick={() => setRows((r) => [...r, emptyRow()])}
           className="mt-3 text-xs text-agua/80 hover:text-agua"
         >
-          + Add another person
+          {t.send.addPerson}
         </button>
       )}
 
       <div className="mt-5 flex justify-between text-sm">
-        <span className="opacity-60">Total</span>
+        <span className="opacity-60">{t.send.total}</span>
         <span className="font-medium">{formatUsd(total)}</span>
       </div>
       {overBalance && (
-        <p className="mt-2 text-xs text-oro">The total exceeds your USDC balance.</p>
+        <p className="mt-2 text-xs text-oro">{t.send.totalOver}</p>
       )}
       {filled.length > 0 && !allValid && (
         <p className="mt-2 text-xs text-luz-tenue/70">
-          Check each address (G…) and amount. You can&apos;t include yourself.
+          {t.send.checkRows}
         </p>
       )}
 
@@ -120,9 +122,9 @@ export function BatchSend() {
         disabled={!allValid || overBalance || tx.loading}
         className="mt-6 w-full"
       >
-        {tx.loading ? "Sending…" : `Send to ${filled.length || ""} ${filled.length === 1 ? "person" : "people"}`}
+        {tx.loading ? t.send.sending : t.send.sendToPeople(filled.length)}
       </Button>
-      <TxStatus error={tx.error} hash={tx.hash} success="Sent to everyone" center />
+      <TxStatus error={tx.error} hash={tx.hash} success={t.send.sentToAll} center />
     </Card>
   );
 }

@@ -21,22 +21,26 @@ import {
 } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
+import { useT } from "@/lib/i18n";
+import type { Messages } from "@/lib/i18n/en";
 
 /** Why the recipient can't get this asset yet, or a heads-up; null if fine. */
-function recipientNotice(asset: AssetCode, recipient: AccountInfo | null): string | null {
+function recipientNotice(
+  asset: AssetCode,
+  recipient: AccountInfo | null,
+  t: Messages["send"],
+): string | null {
   if (!recipient) return null;
-  if (asset === "USDC" && !recipient.exists)
-    return "This account isn't activated yet. Send it some XLM first so it can hold USDC.";
-  if (asset === "USDC" && !recipient.usdcTrustline)
-    return "This recipient hasn't added USDC yet, so they can't receive it.";
-  if (asset === "XLM" && !recipient.exists)
-    return "New account. This payment will activate it on the network.";
+  if (asset === "USDC" && !recipient.exists) return t.notActivated;
+  if (asset === "USDC" && !recipient.usdcTrustline) return t.noTrustline;
+  if (asset === "XLM" && !recipient.exists) return t.newAccount;
   return null;
 }
 
 /** Send to one person: USDC through the contract, or XLM directly. */
 export function SingleSend() {
   const { address } = useWallet();
+  const t = useT();
   const { data: info, refresh } = useAccount(address);
   const splitter = useSplitterConfig();
   const tx = useTx();
@@ -58,7 +62,7 @@ export function SingleSend() {
 
   const available = isUsdc ? (info?.usdc ?? "0") : (info?.xlm ?? "0");
   const overBalance = validAmount && Number(amount) > Number(available);
-  const notice = validAddress ? recipientNotice(asset, recipient) : null;
+  const notice = validAddress ? recipientNotice(asset, recipient, t.send) : null;
   const paused = isUsdc && splitter?.paused === true;
   const blocking =
     paused || (isUsdc && recipient ? !recipient.exists || !recipient.usdcTrustline : false);
@@ -79,7 +83,7 @@ export function SingleSend() {
 
   return (
     <Card>
-      <Field label="Asset">
+      <Field label={t.send.asset}>
         <Segmented
           value={asset}
           onChange={setAsset}
@@ -92,7 +96,7 @@ export function SingleSend() {
       </Field>
 
       <div className="mt-4">
-        <Field label="Recipient" hint={isSelf ? "that's you" : undefined}>
+        <Field label={t.send.recipient} hint={isSelf ? t.send.thatsYou : undefined}>
           <TextInput
             value={to}
             onChange={(e) => setTo(e.target.value.trim())}
@@ -104,7 +108,7 @@ export function SingleSend() {
       </div>
 
       <div className="mt-4">
-        <Field label={`Amount (${asset})`} hint={`Available: ${formatAmount(available)} ${asset}`}>
+        <Field label={t.send.amount(asset)} hint={t.send.available(formatAmount(available), asset)}>
           <AmountInput value={amount} onChange={setAmount} />
         </Field>
       </div>
@@ -112,11 +116,11 @@ export function SingleSend() {
       {/* Memos only travel with direct (classic) payments. */}
       {!isUsdc && (
         <div className="mt-4">
-          <Field label="Memo" hint="optional">
+          <Field label={t.send.memo} hint={t.send.optional}>
             <TextInput
               value={memo}
               onChange={(e) => setMemo(e.target.value.slice(0, 28))}
-              placeholder="e.g. For groceries"
+              placeholder={t.send.memoPlaceholder}
             />
           </Field>
         </div>
@@ -125,28 +129,27 @@ export function SingleSend() {
       {isUsdc && preview && (
         <div className="mt-5 rounded-md border border-luz/5 bg-tierra/50 p-4">
           <div className="mb-3 text-xs uppercase tracking-wider opacity-50">
-            How it takes root
+            {t.send.howItSplits}
           </div>
           <SplitBar spendableBps={preview.spendableBps} />
           <div className="mt-4 flex justify-between text-sm">
-            <span className="text-agua">{formatUsd(preview.spendable)} to their wallet</span>
-            <span className="text-oro">{formatUsd(preview.vault)} saved for them</span>
+            <span className="text-agua">{t.send.toTheirWallet(formatUsd(preview.spendable))}</span>
+            <span className="text-oro">{t.send.savedForThem(formatUsd(preview.vault))}</span>
           </div>
           {splitter && (
             <p className="mt-3 text-xs opacity-45">
-              Beta limit: Grow holds up to {formatUsd(splitter.userCap)} of savings per
-              recipient.
+              {t.send.betaLimit(formatUsd(splitter.userCap))}
             </p>
           )}
         </div>
       )}
 
       {overBalance && (
-        <p className="mt-4 text-xs text-oro">Amount exceeds your available {asset} balance.</p>
+        <p className="mt-4 text-xs text-oro">{t.send.overBalance(asset)}</p>
       )}
       {paused && (
         <p className="mt-3 text-xs text-oro">
-          USDC remittances are paused for maintenance. Please try again later.
+          {t.send.paused}
         </p>
       )}
       {notice && (
@@ -159,10 +162,10 @@ export function SingleSend() {
         disabled={!validAddress || !validAmount || isSelf || overBalance || blocking || tx.loading}
         className="mt-6 w-full"
       >
-        {tx.loading ? "Sending…" : `Send ${asset}`}
+        {tx.loading ? t.send.sending : t.send.sendAsset(asset)}
       </Button>
 
-      <TxStatus error={tx.error} hash={tx.hash} success="Sent successfully" center />
+      <TxStatus error={tx.error} hash={tx.hash} success={t.send.sent} center />
     </Card>
   );
 }

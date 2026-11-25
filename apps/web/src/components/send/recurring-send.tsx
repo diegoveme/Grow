@@ -14,11 +14,11 @@ import { formatUsd, shortAddress, timeUntil } from "@/lib/format";
 import { useResource, useSchedules } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
+import { useLocale, useT } from "@/lib/i18n";
 
 type Every = "minute" | "week" | "month";
 
 const INTERVALS: Record<Every, number> = { minute: 60, week: 7 * 86_400, month: 30 * 86_400 };
-const LABELS: Record<Every, string> = { minute: "Every minute", week: "Every week", month: "Every month" };
 
 const isDue = (s: ScheduleView) => new Date(s.nextAt).getTime() <= Date.now();
 
@@ -29,6 +29,13 @@ const isDue = (s: ScheduleView) => new Date(s.nextAt).getTime() <= Date.now();
  */
 export function RecurringSend() {
   const { address } = useWallet();
+  const t = useT();
+  const { locale } = useLocale();
+  const labels: Record<Every, string> = {
+    minute: t.send.everyMinute,
+    week: t.send.everyWeek,
+    month: t.send.everyMonth,
+  };
   const { data: schedules, refresh } = useSchedules(address);
   // With the keeper on, due payments go out by themselves.
   const keeperOn = useResource(() => api.health(), []).data?.keeper?.enabled === true;
@@ -49,19 +56,19 @@ export function RecurringSend() {
     if (!address || !valid) return;
     const interval = INTERVALS[every];
     setLastHash(null);
-    setStep("1/3 · Approve the total for these payments");
+    setStep(t.send.step1);
     const approved = await tx.run(
       () => api.buildScheduleAllowance(address, amount, interval, runs),
       api.submitSoroban,
     );
     if (!approved) return setStep(null);
-    setStep("2/3 · Create the schedule");
+    setStep(t.send.step2);
     const created = await tx.run(
       () => api.buildCreateSchedule(address, to, amount, interval, runs),
       api.submitSoroban,
     );
     if (!created) return setStep(null);
-    setStep("3/3 · Send the first payment");
+    setStep(t.send.step3);
     const latest = await api.schedules(address).catch(() => []);
     const mine = latest.find((s) => s.from === address && s.to === to && isDue(s));
     const first = mine
@@ -89,14 +96,10 @@ export function RecurringSend() {
     <>
       <Card>
         <p className="mb-4 text-sm opacity-55">
-          Send the same amount on a schedule. You approve the total once; each payment is split
-          by the recipient&apos;s choice, like any Grow remittance.{" "}
-          {keeperOn
-            ? "The first goes now and the rest go out automatically when due."
-            : "The first goes now; send the rest from the list below when they're due."}
+          {t.send.recurringIntro} {keeperOn ? t.send.recurringAuto : t.send.recurringManual}
         </p>
 
-        <Field label="Recipient">
+        <Field label={t.send.recipient}>
           <TextInput
             value={to}
             onChange={(e) => setTo(e.target.value.trim())}
@@ -107,10 +110,10 @@ export function RecurringSend() {
         </Field>
 
         <div className="mt-4 grid grid-cols-2 gap-3">
-          <Field label="Each payment (USDC)">
+          <Field label={t.send.eachPayment}>
             <AmountInput value={amount} onChange={setAmount} />
           </Field>
-          <Field label="How many times">
+          <Field label={t.send.howMany}>
             <TextInput
               value={String(runs)}
               onChange={(e) => setRuns(Math.max(1, Math.min(120, Number(e.target.value) || 1)))}
@@ -120,37 +123,39 @@ export function RecurringSend() {
         </div>
 
         <div className="mt-4">
-          <Field label="Frequency">
+          <Field label={t.send.frequency}>
             <Segmented
               value={every}
               onChange={setEvery}
               accent="oro"
-              options={options.map((o) => ({ value: o, label: LABELS[o] }))}
+              options={options.map((o) => ({ value: o, label: labels[o] }))}
             />
           </Field>
         </div>
 
         {valid && (
           <p className="mt-4 text-xs opacity-55">
-            You approve {formatUsd(Number(amount) * runs)} in total. You can cancel anytime.
+            {t.send.approveTotal(formatUsd(Number(amount) * runs))}
           </p>
         )}
 
         <Button variant="gold" onClick={create} disabled={!valid || tx.loading} className="mt-6 w-full">
-          {tx.loading ? (step ?? "Signing…") : "Start recurring remittance"}
+          {tx.loading ? (step ?? t.common.signing) : t.send.startRecurring}
         </Button>
         {tx.error && <p className="mt-3 text-center text-xs text-oro">{tx.error}</p>}
         {lastHash && !tx.loading && (
           <p className="mt-3 text-center text-xs text-brote">
-            <ExplorerLink href={explorerTx(lastHash)}>Done · view transaction</ExplorerLink>
+            <ExplorerLink href={explorerTx(lastHash)}>
+              {t.send.done} · {t.common.viewTransaction}
+            </ExplorerLink>
           </p>
         )}
       </Card>
 
       <Card className="mt-4">
-        <CardLabel>Your recurring remittances</CardLabel>
+        <CardLabel>{t.send.yourRecurring}</CardLabel>
         {!schedules?.length ? (
-          <p className="text-sm opacity-50">None yet.</p>
+          <p className="text-sm opacity-50">{t.send.noneYet}</p>
         ) : (
           <ul className="divide-y divide-luz/5">
             {schedules.map((s) => {
@@ -159,24 +164,25 @@ export function RecurringSend() {
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
                   <div>
                     <div>
-                      {formatUsd(s.amount)} {outgoing ? "to" : "from"}{" "}
+                      {formatUsd(s.amount)} {outgoing ? t.activity.to : t.activity.from}{" "}
                       <span className="font-mono text-xs">
                         {shortAddress(outgoing ? s.to : s.from, 4, 4)}
                       </span>
                     </div>
                     <div className="text-xs opacity-50">
-                      {s.runsLeft} left · next {isDue(s) ? "due now" : timeUntil(s.nextAt)}
+                      {t.send.runsLeft(s.runsLeft)} ·{" "}
+                      {t.send.next(isDue(s) ? t.send.dueNow : timeUntil(s.nextAt, locale))}
                     </div>
                   </div>
                   <div className="flex gap-2">
                     {isDue(s) && (
                       <Button variant="ghost" onClick={() => act("run", s.id)} disabled={tx.loading}>
-                        Send now
+                        {t.send.sendNow}
                       </Button>
                     )}
                     {outgoing && (
                       <Button variant="ghost" onClick={() => act("cancel", s.id)} disabled={tx.loading}>
-                        Cancel
+                        {t.send.cancel}
                       </Button>
                     )}
                   </div>

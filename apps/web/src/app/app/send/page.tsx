@@ -8,11 +8,13 @@ import { RecurringSend } from "@/components/send/recurring-send";
 import { SingleSend } from "@/components/send/single-send";
 import { Segmented } from "@/components/ui/segmented";
 import { useWallet } from "@/lib/wallet";
+import { useT } from "@/lib/i18n";
 
 type Mode = "one" | "many" | "recurring";
 
 export default function SendPage() {
   const { address } = useWallet();
+  const t = useT();
   const [mode, setMode] = useState<Mode>("one");
 
   if (!address) return null;
@@ -20,9 +22,9 @@ export default function SendPage() {
   return (
     <div className="mx-auto max-w-xl animate-rise">
       <PageHeader
-        eyebrow="Send"
-        title="Send money"
-        subtitle="USDC goes through Grow and is split by each recipient's choice. XLM is sent directly. Everything settles in seconds."
+        eyebrow={t.send.eyebrow}
+        title={t.send.title}
+        subtitle={t.send.subtitle}
       />
 
       <Segmented
@@ -30,9 +32,9 @@ export default function SendPage() {
         value={mode}
         onChange={setMode}
         options={[
-          { value: "one", label: "One person" },
-          { value: "many", label: "Several people" },
-          { value: "recurring", label: "Recurring" },
+          { value: "one", label: t.send.modeOne },
+          { value: "many", label: t.send.modeMany },
+          { value: "recurring", label: t.send.modeRecurring },
         ]}
       />
 
@@ -41,9 +43,9 @@ export default function SendPage() {
       {mode === "recurring" && <RecurringSend />}
 
       <p className="mt-4 text-center text-xs opacity-40">
-        Don&apos;t have funds yet?{" "}
+        {t.send.noFunds}{" "}
         <Link href="/app/receive" className="text-agua/70 hover:text-agua">
-          Fund your wallet →
+          {t.send.fundWallet}
         </Link>
       </p>
     </div>
