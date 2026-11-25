@@ -20,7 +20,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: packages/contracts
-      - run: cargo test
+      # The upgrade tests swap in real wasm, so build it first.
+      - run: cargo build --release --target wasm32v1-none
+      - run: cargo test --features upgrade-test
 
   typescript:
     name: Typecheck and API tests

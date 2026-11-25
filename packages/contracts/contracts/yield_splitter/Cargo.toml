@@ -10,6 +10,10 @@ authors = { workspace = true }
 crate-type = ["cdylib", "rlib"]
 doctest = false
 
+[features]
+# Runs the upgrade tests, which need the wasm built first (`bun run test:upgrade`).
+upgrade-test = []
+
 [dependencies]
 soroban-sdk = { version = "23" }
 

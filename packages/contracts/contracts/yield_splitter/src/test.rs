@@ -435,3 +435,54 @@ fn deposit_savings_rejects_zero() {
     let user = Address::generate(&h.env);
     h.client.deposit_savings(&user, &0);
 }
+
+// ── upgrade ─────────────────────────────────────────────────────────────────
+//
+// Needs real wasm to swap in, so it runs with the `upgrade-test` feature after
+// a build: `bun run test:upgrade` (CI does the same).
+
+#[cfg(feature = "upgrade-test")]
+mod upgrade {
+    use super::*;
+    use soroban_sdk::{testutils::MockAuth, testutils::MockAuthInvoke, IntoVal};
+
+    const WASM: &[u8] =
+        include_bytes!("../../../target/wasm32v1-none/release/yield_splitter.wasm");
+
+    #[test]
+    fn admin_can_upgrade_and_state_survives() {
+        let h = setup();
+        let (sender, recipient) = h.parties(200);
+        h.client.receive(&sender, &recipient, &200);
+        let hash = h.env.deployer().upload_contract_wasm(WASM);
+
+        h.client.upgrade(&hash);
+
+        assert_eq!(h.env.auths()[0].0, h.admin);
+        // The swapped-in code still sees the same settings and balances.
+        assert_eq!(h.client.config().admin, h.admin);
+        assert_eq!(h.client.savings(&recipient), 60);
+    }
+
+    #[test]
+    fn a_stranger_cannot_upgrade() {
+        let h = setup();
+        let hash = h.env.deployer().upload_contract_wasm(WASM);
+        let stranger = Address::generate(&h.env);
+
+        h.env.mock_auths(&[MockAuth {
+            address: &stranger,
+            invoke: &MockAuthInvoke {
+                contract: &h.client.address,
+                fn_name: "upgrade",
+                args: (hash.clone(),).into_val(&h.env),
+                sub_invokes: &[],
+            },
+        }]);
+        assert!(h.client.try_upgrade(&hash).is_err());
+
+        // The same, valid hash goes through once the admin signs.
+        h.env.mock_all_auths();
+        h.client.upgrade(&hash);
+    }
+}
