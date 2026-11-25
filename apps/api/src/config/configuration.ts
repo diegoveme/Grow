@@ -24,6 +24,13 @@ export interface AppConfig {
     issuer: string;
   };
   defindexApiKey?: string;
+  keeper: {
+    /** Secret key of the account that pays fees for running due schedules. */
+    secret?: string;
+    intervalSecs: number;
+    /** Off under tests and when KEEPER_ENABLED=false. */
+    enabled: boolean;
+  };
   stats: {
     /** Poll contract events into the stats store (off with STATS_INDEXER=false). */
     indexer: boolean;
@@ -71,6 +78,11 @@ export default (): AppConfig => {
         'GATALTGTWIOT6BUDBCZM3Q4OQ4BO2COLOAZ7IYSKPLC2PMSOPPGF5V56',
     },
     defindexApiKey: process.env.DEFINDEX_API_KEY?.trim() || undefined,
+    keeper: {
+      secret: process.env.KEEPER_SECRET?.trim() || undefined,
+      intervalSecs: Math.max(15, Number(process.env.KEEPER_INTERVAL_SECS) || 60),
+      enabled: process.env.KEEPER_ENABLED !== 'false' && process.env.NODE_ENV !== 'test',
+    },
     stats: {
       indexer: process.env.STATS_INDEXER !== 'false' && process.env.NODE_ENV !== 'test',
       startLedger: Number(process.env.STATS_START_LEDGER) || undefined,

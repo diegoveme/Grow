@@ -12,6 +12,7 @@ import { SplitsModule } from './splits/splits.module';
 import { VaultModule } from './vault/vault.module';
 import { RemittancesModule } from './remittances/remittances.module';
 import { StatsModule } from './stats/stats.module';
+import { KeeperModule } from './keeper/keeper.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { StatsModule } from './stats/stats.module';
     VaultModule,
     RemittancesModule,
     StatsModule,
+    KeeperModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -11,7 +11,7 @@ import { Segmented } from "@/components/ui/segmented";
 import { api, type ScheduleView } from "@/lib/api";
 import { config, explorerTx } from "@/lib/config";
 import { formatUsd, shortAddress, timeUntil } from "@/lib/format";
-import { useSchedules } from "@/lib/hooks";
+import { useResource, useSchedules } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
 
@@ -30,6 +30,8 @@ const isDue = (s: ScheduleView) => new Date(s.nextAt).getTime() <= Date.now();
 export function RecurringSend() {
   const { address } = useWallet();
   const { data: schedules, refresh } = useSchedules(address);
+  // With the keeper on, due payments go out by themselves.
+  const keeperOn = useResource(() => api.health(), []).data?.keeper?.enabled === true;
   const tx = useTx();
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
@@ -87,8 +89,11 @@ export function RecurringSend() {
     <>
       <Card>
         <p className="mb-4 text-sm opacity-55">
-          Send the same amount automatically. You approve the total once; each payment is split
-          by the recipient&apos;s choice, like any Grow remittance.
+          Send the same amount on a schedule. You approve the total once; each payment is split
+          by the recipient&apos;s choice, like any Grow remittance.{" "}
+          {keeperOn
+            ? "The first goes now and the rest go out automatically when due."
+            : "The first goes now; send the rest from the list below when they're due."}
         </p>
 
         <Field label="Recipient">

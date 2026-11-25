@@ -20,6 +20,7 @@ bun run api                        # http://localhost:3001/api, Swagger at /api/
 | `splits` | `/splits/config`, `/splits/:address`, `/ratio/build`, `/receive/build`, `/withdraw/build`, `/submit` | `yield_splitter` reads and transactions |
 | `remittances` | `/remittances/preview`, `POST /remittances {txHash}`, `GET /remittances?address=` | Off-chain timeline. A remittance is stored only after its `receive` tx is verified on-chain |
 | `vault` | `/vault/apy`, `/vault/position/:address`, `/vault/deposit/build`, `/vault/withdraw/build` | DeFindex vault (Blend strategy). Amounts are USDC, never shares |
+| `keeper` | (background) | Runs due recurring remittances every `KEEPER_INTERVAL_SECS`, signing as a fee-only account; status in `/api/health` |
 | `anchor` | `/anchor/info`, `/anchor/sep10/*`, `/anchor/sep24/*` | SEP-10 auth and SEP-24 deposit/withdraw proxy |
 
 Contract and token errors from simulation come back as `400` with a readable

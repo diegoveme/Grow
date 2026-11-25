@@ -35,6 +35,7 @@ per-recipient savings cap.
 | API builds a transaction the user did not intend | The wallet shows what it signs; the API never holds keys | By design |
 | Fake remittances or history | `POST /remittances` accepts only a tx hash and verifies a successful `receive` on our contract | Done |
 | Malformed input causing 500s or odd math | DTO validation, `StellarAddressPipe`, strict `AMOUNT_REGEX`, `toStroops` rejects bad input | Done |
+| Keeper key leaks | It only signs `run_schedule`, which needs no sender signature and follows the terms each sender signed; the key holds just XLM for fees, so a leak can at worst spend those fees | By design |
 | Abuse of build endpoints (RPC cost, DeFindex quota) | Per-IP rate limit on transaction-building routes | Done (in-memory; move to a shared store if the API scales out) |
 | Secret leakage | Secrets only in host env vars; `.env*` ignored by git | Done |
 | CORS misuse | `CORS_ORIGIN` set to the web origin | Done |
@@ -56,6 +57,7 @@ per-recipient savings cap.
 | Contract custody vs. books | `savingsHeld` (token balance) vs. savings from events | Any mismatch |
 | Unusual outflows | `savings_withdrawn` events | A single withdrawal above the cap, or many within minutes |
 | Admin actions | `user_cap_set`, `paused_set` events and contract code changes | Any, outside a planned change |
+| Keeper | `keeper` in `GET /api/health` (`lastTickAt`, `lastFailed`) and its XLM balance | No tick in 5 minutes, repeated failures, or under 20 XLM |
 | Failed submissions | API logs (`simulate … failed`, `failed on-chain`) | Error rate above 5% over 15 minutes |
 | Dependency health | Soroban RPC, Horizon, DeFindex API status | Errors from any of them for 5 minutes |
 

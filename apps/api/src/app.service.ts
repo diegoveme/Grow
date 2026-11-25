@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DatabaseService } from './database/database.service';
+import { KeeperService } from './keeper/keeper.service';
 import type { AppConfig } from './config/configuration';
 
 @Injectable()
@@ -8,6 +9,7 @@ export class AppService {
   constructor(
     private readonly config: ConfigService<AppConfig, true>,
     private readonly db: DatabaseService,
+    private readonly keeper: KeeperService,
   ) {}
 
   health() {
@@ -22,6 +24,7 @@ export class AppService {
         blendPool: Boolean(contracts.blendPool),
         defindexVault: Boolean(contracts.defindexVault),
       },
+      keeper: this.keeper.getStatus(),
     };
   }
 }

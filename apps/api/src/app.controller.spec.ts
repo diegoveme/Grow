@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseService } from './database/database.service';
+import { KeeperService } from './keeper/keeper.service';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -20,6 +21,7 @@ describe('AppController', () => {
           },
         },
         { provide: DatabaseService, useValue: { enabled: false } },
+        { provide: KeeperService, useValue: { getStatus: () => ({ enabled: false }) } },
       ],
     }).compile();
 

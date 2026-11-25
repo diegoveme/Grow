@@ -7,7 +7,12 @@ export const accountsApi = {
   buildTestUsdc: (account: string, xlm: string) =>
     post<{ xdr: string; quote: string }>("/accounts/test-usdc/build", { account, xlm }),
   health: () =>
-    request<{ status: string; network: string; database: string }>("/health"),
+    request<{
+      status: string;
+      network: string;
+      database: string;
+      keeper?: { enabled: boolean };
+    }>("/health"),
 
   
 

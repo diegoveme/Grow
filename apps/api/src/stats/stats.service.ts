@@ -137,6 +137,15 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
       .reverse();
   }
 
+  /** Every schedule or pledge id ever created on the contract (for the keeper). */
+  async allRefs(type: 'schedule_created' | 'pledge_created'): Promise<number[]> {
+    const contractId = this.contractId;
+    if (!contractId) return [];
+    await this.sync();
+    const events = await this.eventStore().all(contractId);
+    return events.filter((e) => e.type === type && e.ref).map((e) => Number(e.ref));
+  }
+
   /** The contract's USDC balance, read live from the token (exact, not derived). */
   private async savingsHeld(contractId: string): Promise<string | null> {
     try {
