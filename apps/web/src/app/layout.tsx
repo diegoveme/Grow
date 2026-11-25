@@ -3,6 +3,7 @@ import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { WalletProvider } from "@/lib/wallet";
 import { THEME_INIT_SCRIPT, ThemeProvider } from "@/lib/theme";
+import { I18nProvider } from "@/lib/i18n";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -40,7 +41,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
-          <WalletProvider>{children}</WalletProvider>
+          <I18nProvider>
+            <WalletProvider>{children}</WalletProvider>
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>

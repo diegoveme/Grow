@@ -6,9 +6,11 @@ import { MobileNav, Sidebar } from "./sidebar";
 import { CursorMolecules } from "@/components/cursor-molecules";
 import { ConnectButton } from "@/components/connect-button";
 import { useWallet } from "@/lib/wallet";
+import { useT } from "@/lib/i18n";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { address, ready } = useWallet();
+  const t = useT();
 
   // While the kit is still checking for a stored wallet, show a neutral splash
   // so a reload never flashes the connect modal before reconnecting.
@@ -32,7 +34,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             href="/"
             className="hidden text-xs uppercase tracking-[0.14em] text-luz-tenue/50 transition-colors hover:text-agua md:block"
           >
-            ← Back to site
+            {t.shell.backToSite}
           </Link>
           <ConnectButton />
         </header>
@@ -56,6 +58,7 @@ function BootSplash() {
 
 /** Full-screen connect modal with cursor-following molecules. */
 function ConnectModal() {
+  const t = useT();
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-tierra">
       {/* ambient glow */}
@@ -67,10 +70,9 @@ function ConnectModal() {
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-agua/30 bg-semilla/40 text-3xl">
             🌱
           </div>
-          <h1 className="font-display text-4xl font-bold">Connect your wallet</h1>
+          <h1 className="font-display text-4xl font-bold">{t.shell.connectTitle}</h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-relaxed opacity-60">
-            Connect a Stellar wallet (Freighter, xBull, Albedo…) to see your balances, send and
-            receive money, and grow the part you save.
+            {t.shell.connectBody}
           </p>
           <div className="mt-8 flex justify-center">
             <ConnectButton />
@@ -79,7 +81,7 @@ function ConnectModal() {
             href="/"
             className="mt-8 inline-block text-xs uppercase tracking-[0.14em] text-luz-tenue/40 transition-colors hover:text-agua"
           >
-            ← Back to site
+            {t.shell.backToSite}
           </Link>
         </div>
       </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NAV_ITEMS } from "./nav-items";
 import { config } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 
 function isActive(pathname: string, href: string): boolean {
   if (href === "/app") return pathname === "/app";
@@ -13,6 +14,7 @@ function isActive(pathname: string, href: string): boolean {
 /** Desktop sidebar: fixed, vertical navigation (md and up). */
 export function Sidebar() {
   const pathname = usePathname();
+  const t = useT();
   return (
     <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-luz/5 bg-tierra-mid/40 px-4 py-6 md:flex">
       <Link href="/" className="mb-8 flex items-center gap-2 px-2">
@@ -36,7 +38,7 @@ export function Sidebar() {
               <Icon
                 className={active ? "text-agua" : "text-luz-tenue/50 group-hover:text-luz"}
               />
-              <span className="tracking-wide">{label}</span>
+              <span className="tracking-wide">{t.nav[label]}</span>
             </Link>
           );
         })}
@@ -44,7 +46,7 @@ export function Sidebar() {
 
       <div className="mt-4 flex items-center gap-2 rounded-md border border-luz/5 px-3 py-2 text-xs text-luz-tenue/50">
         <span className="h-1.5 w-1.5 rounded-full bg-brote" />
-        {config.network === "PUBLIC" ? "Mainnet" : "Stellar Testnet"}
+        {config.network === "PUBLIC" ? t.network.mainnet : t.network.testnet}
       </div>
     </aside>
   );
@@ -53,6 +55,7 @@ export function Sidebar() {
 /** Mobile bottom navigation: fixed bar (below md). */
 export function MobileNav() {
   const pathname = usePathname();
+  const t = useT();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-luz/10 bg-tierra/95 backdrop-blur md:hidden">
       {NAV_ITEMS.map(({ href, label, Icon }) => {
@@ -66,7 +69,7 @@ export function MobileNav() {
             }`}
           >
             <Icon width={20} height={20} />
-            {label}
+            {t.nav[label]}
           </Link>
         );
       })}
