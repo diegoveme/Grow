@@ -12,14 +12,15 @@ import { api, type AccountInfo, type SplitPreview } from "@/lib/api";
 import { ASSETS, SENDABLE_ASSETS, type AssetCode } from "@/lib/assets";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
-import { useAccount } from "@/lib/hooks";
+import { useAccount, useSplitterConfig } from "@/lib/hooks";
 import { explorerTx } from "@/lib/config";
 import { formatAmount, formatUsd } from "@/lib/format";
-import { isStellarAddress } from "@raiz/shared";
+import { isStellarAddress, isValidAmount } from "@raiz/shared";
 
 export default function SendPage() {
   const { address } = useWallet();
   const { data: info, refresh } = useAccount(address);
+  const splitter = useSplitterConfig();
   const tx = useTx();
 
   const [asset, setAsset] = useState<AssetCode>("USDC");
@@ -28,30 +29,48 @@ export default function SendPage() {
   const [memo, setMemo] = useState("");
   const [preview, setPreview] = useState<SplitPreview | null>(null);
   const [recipient, setRecipient] = useState<AccountInfo | null>(null);
+  const [recipientBps, setRecipientBps] = useState<number | null>(null);
 
+  const isUsdc = asset === "USDC";
   const validAddress = isStellarAddress(to);
   const isGold = ASSETS[asset].accent === "oro";
-  const validAmount = Number(amount) > 0;
+  const validAmount = isValidAmount(amount) && Number(amount) > 0;
   const isSelf = validAddress && to === address;
 
-  const available = asset === "USDC" ? info?.usdc ?? "0" : info?.xlm ?? "0";
+  const available = isUsdc ? info?.usdc ?? "0" : info?.xlm ?? "0";
   const overBalance = validAmount && Number(amount) > Number(available);
+
+  // The recipient's own split decides how a USDC remittance takes root.
+  useEffect(() => {
+    if (!isUsdc || !validAddress) {
+      setRecipientBps(null);
+      return;
+    }
+    let active = true;
+    api
+      .ratio(to)
+      .then((r) => active && setRecipientBps(r.spendableBps))
+      .catch(() => active && setRecipientBps(null));
+    return () => {
+      active = false;
+    };
+  }, [to, validAddress, isUsdc]);
 
   // Split preview (USDC only, that's what takes root).
   useEffect(() => {
-    if (asset !== "USDC" || !validAmount) {
+    if (!isUsdc || !validAmount) {
       setPreview(null);
       return;
     }
     let active = true;
     api
-      .previewSplit(amount)
+      .previewSplit(amount, recipientBps ?? undefined)
       .then((p) => active && setPreview(p))
       .catch(() => active && setPreview(null));
     return () => {
       active = false;
     };
-  }, [amount, validAmount, asset]);
+  }, [amount, validAmount, isUsdc, recipientBps]);
 
   // Look up the recipient so we can warn before they fail to receive.
   useEffect(() => {
@@ -71,27 +90,26 @@ export default function SendPage() {
 
   const recipientWarning = (() => {
     if (!validAddress || !recipient) return null;
-    if (asset === "USDC" && !recipient.exists)
+    if (isUsdc && !recipient.exists)
       return "This account isn't activated yet. Send it some XLM first so it can hold USDC.";
-    if (asset === "USDC" && !recipient.usdcTrustline)
+    if (isUsdc && !recipient.usdcTrustline)
       return "This recipient hasn't added USDC yet, so they can't receive it.";
-    if (asset === "XLM" && !recipient.exists)
+    if (!isUsdc && !recipient.exists)
       return "New account. This payment will activate it on the network.";
     return null;
   })();
 
+  const paused = isUsdc && splitter?.paused === true;
   const blocking =
-    asset === "USDC" && recipient
-      ? !recipient.exists || !recipient.usdcTrustline
-      : false;
+    paused || (isUsdc && recipient ? !recipient.exists || !recipient.usdcTrustline : false);
 
   async function send() {
     if (!address || !validAddress || !validAmount || isSelf || blocking) return;
-    const hash = await tx.run(() => api.buildPayment({ from: address, to, asset, amount, memo }));
+    const hash = isUsdc
+      ? await tx.run(() => api.buildReceive(address, to, amount), api.submitSoroban)
+      : await tx.run(() => api.buildPayment({ from: address, to, asset, amount, memo }));
     if (hash) {
-      if (asset === "USDC") {
-        await api.createRemittance({ from: address, to, amount }).catch(() => undefined);
-      }
+      if (isUsdc) await api.recordRemittance(hash).catch(() => undefined);
       setAmount("");
       setMemo("");
       refresh();
@@ -105,7 +123,7 @@ export default function SendPage() {
       <PageHeader
         eyebrow="Send"
         title="Send money"
-        subtitle="Transfer XLM or USDC to any Stellar address. It settles in seconds."
+        subtitle="USDC goes through Grow and is split by the recipient's choice. XLM is sent directly. Both settle in seconds."
       />
 
       <Card>
@@ -157,27 +175,36 @@ export default function SendPage() {
           </Field>
         </div>
 
-        <div className="mt-4">
-          <Field label="Memo" hint="optional">
-            <TextInput
-              value={memo}
-              onChange={(e) => setMemo(e.target.value.slice(0, 28))}
-              placeholder="e.g. For groceries"
-            />
-          </Field>
-        </div>
+        {/* Memos only travel with direct (classic) payments. */}
+        {!isUsdc && (
+          <div className="mt-4">
+            <Field label="Memo" hint="optional">
+              <TextInput
+                value={memo}
+                onChange={(e) => setMemo(e.target.value.slice(0, 28))}
+                placeholder="e.g. For groceries"
+              />
+            </Field>
+          </div>
+        )}
 
         {/* Split preview */}
-        {asset === "USDC" && preview && (
+        {isUsdc && preview && (
           <div className="mt-5 rounded-md border border-luz/5 bg-tierra/50 p-4">
             <div className="mb-3 text-xs uppercase tracking-wider opacity-50">
               How it takes root
             </div>
             <SplitBar spendableBps={preview.spendableBps} />
             <div className="mt-4 flex justify-between text-sm">
-              <span className="text-agua">{formatUsd(preview.spendable)} spendable</span>
-              <span className="text-oro">{formatUsd(preview.vault)} growing</span>
+              <span className="text-agua">{formatUsd(preview.spendable)} to their wallet</span>
+              <span className="text-oro">{formatUsd(preview.vault)} saved for them</span>
             </div>
+            {splitter && (
+              <p className="mt-3 text-xs opacity-45">
+                Beta limit: Grow holds up to {formatUsd(splitter.userCap)} of savings per
+                recipient.
+              </p>
+            )}
           </div>
         )}
 
@@ -185,6 +212,11 @@ export default function SendPage() {
         {overBalance && (
           <p className="mt-4 text-xs text-oro">
             Amount exceeds your available {asset} balance.
+          </p>
+        )}
+        {paused && (
+          <p className="mt-3 text-xs text-oro">
+            USDC remittances are paused for maintenance. Please try again later.
           </p>
         )}
         {recipientWarning && (
@@ -218,7 +250,7 @@ export default function SendPage() {
       </Card>
 
       <p className="mt-4 text-center text-xs opacity-40">
-        Don't have funds yet?{" "}
+        Don&apos;t have funds yet?{" "}
         <Link href="/app/receive" className="text-agua/70 hover:text-agua">
           Fund your wallet →
         </Link>

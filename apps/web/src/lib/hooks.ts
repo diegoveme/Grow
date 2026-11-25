@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { DEFAULT_SPLIT } from "@raiz/shared";
+import type { AccountState, SplitterConfig } from "@raiz/shared";
 import { api, type AccountInfo, type PaymentRecord } from "./api";
 
 /** Generic async resource with manual + interval refresh. */
@@ -53,6 +54,20 @@ export function usePayments(address: string | null, limit = 25, pollMs = 15000) 
     [address, limit],
     pollMs,
   );
+}
+
+/** The account's savings + split in the yield_splitter contract. */
+export function usePosition(address: string | null, pollMs = 15000) {
+  return useResource<AccountState>(
+    address ? () => api.position(address) : null,
+    [address],
+    pollMs,
+  );
+}
+
+/** Contract settings (savings cap, paused), or null if not configured. */
+export function useSplitterConfig() {
+  return useResource<SplitterConfig>(() => api.splitterConfig(), []).data;
 }
 
 /** The account's spendable basis points, falling back to the default split. */

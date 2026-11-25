@@ -1,5 +1,11 @@
 import { config } from "./config";
-import type { AccountState, AssetCode, Remittance, VaultPosition } from "@raiz/shared";
+import type {
+  AccountState,
+  AssetCode,
+  Remittance,
+  SplitterConfig,
+  VaultPosition,
+} from "@raiz/shared";
 
 export type { AssetCode };
 
@@ -97,12 +103,24 @@ export const api = {
       body: JSON.stringify({ amount, spendableBps }),
     }),
   position: (address: string) => request<AccountState>(`/splits/${address}`),
+  splitterConfig: () => request<SplitterConfig>("/splits/config"),
   ratio: (address: string) =>
     request<{ spendableBps: number; vaultBps: number }>(`/splits/${address}/ratio`),
   buildSetSplit: (user: string, spendableBps: number) =>
     request<{ xdr: string }>("/splits/ratio/build", {
       method: "POST",
       body: JSON.stringify({ user, spendableBps }),
+    }),
+  /** Send USDC through the contract: spendable to `to`, savings held for `to`. */
+  buildReceive: (from: string, to: string, amount: string) =>
+    request<{ xdr: string }>("/splits/receive/build", {
+      method: "POST",
+      body: JSON.stringify({ from, to, amount }),
+    }),
+  buildWithdrawSavings: (to: string, amount: string) =>
+    request<{ xdr: string }>("/splits/withdraw/build", {
+      method: "POST",
+      body: JSON.stringify({ to, amount }),
     }),
   submitSoroban: (signedXdr: string) =>
     request<{ hash: string; status: string }>("/splits/submit", {
@@ -125,17 +143,13 @@ export const api = {
     }),
 
   // ── Remittances (DB) ────────────────────────────────────────────────────
-  remittances: (address?: string) =>
-    request<Remittance[]>(`/remittances${address ? `?address=${address}` : ""}`),
-  createRemittance: (body: {
-    from: string;
-    to: string;
-    amount: string;
-    spendableBps?: number;
-  }) =>
+  remittances: (address: string) =>
+    request<Remittance[]>(`/remittances?address=${encodeURIComponent(address)}`),
+  /** Record a remittance; the API verifies the receive() tx on-chain first. */
+  recordRemittance: (txHash: string) =>
     request<Remittance>("/remittances", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify({ txHash }),
     }),
 
   // ── Anchor (SEP-10 + SEP-24) ────────────────────────────────────────────

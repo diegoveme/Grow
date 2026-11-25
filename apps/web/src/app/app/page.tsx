@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { BalanceCards } from "@/components/app/balance-cards";
 import { SplitBar } from "@/components/app/split-bar";
 import { ActivityList } from "@/components/app/activity-list";
+import { SavingsCard } from "@/components/app/savings-card";
 import { Card, CardLabel } from "@/components/ui/card";
 import { SendIcon, ReceiveIcon } from "@/components/app/icons";
 import { useWallet } from "@/lib/wallet";
@@ -29,6 +30,10 @@ export default function OverviewPage() {
       />
 
       <BalanceCards info={info} />
+
+      <div className="mt-4">
+        <SavingsCard address={address} />
+      </div>
 
       {/* Quick actions */}
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -70,8 +75,8 @@ export default function OverviewPage() {
             </Link>
           </div>
           <p className="mb-5 text-sm opacity-55">
-            Every USDC remittance you receive is divided automatically. Part stays spendable,
-            part takes root and earns yield.
+            Every USDC remittance sent to you through Grow is divided on-chain. Part lands in
+            your wallet, part is saved for you. Move savings into the vault to earn yield.
           </p>
           <SplitBar spendableBps={spendableBps} />
         </Card>
