@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { formatUsd } from "@/lib/format";
 import { usePosition } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
+import { useT } from "@/lib/i18n";
 
 type Mode = "add" | "withdraw" | "pay";
 
@@ -22,6 +23,7 @@ type Mode = "add" | "withdraw" | "pay";
  * (a school, a clinic) straight out of savings.
  */
 export function SavingsCard({ address }: { address: string }) {
+  const t = useT();
   const { data: position, error, refresh } = usePosition(address);
   const tx = useTx();
   const [mode, setMode] = useState<Mode>("add");
@@ -56,14 +58,14 @@ export function SavingsCard({ address }: { address: string }) {
 
   return (
     <Card>
-      <CardLabel>Savings in Grow</CardLabel>
+      <CardLabel>{t.savings.label}</CardLabel>
       <div className="font-display text-4xl font-bold text-oro">
         {position ? formatUsd(savings) : <span className="opacity-40">·</span>}
       </div>
       <p className="mt-1 text-xs opacity-45">
         {error && !position
-          ? "The Grow contract is not reachable right now."
-          : "The saved part of the remittances you receive, plus what you set aside. Only you can withdraw it."}
+          ? t.savings.unreachable
+          : t.savings.body}
       </p>
 
       {position && (
@@ -77,15 +79,15 @@ export function SavingsCard({ address }: { address: string }) {
               tx.reset();
             }}
             options={[
-              { value: "add", label: "Set aside" },
-              { value: "withdraw", label: "Withdraw", disabled: !hasSavings },
-              { value: "pay", label: "Pay", disabled: !hasSavings },
+              { value: "add", label: t.savings.setAside },
+              { value: "withdraw", label: t.savings.withdraw, disabled: !hasSavings },
+              { value: "pay", label: t.savings.pay, disabled: !hasSavings },
             ]}
           />
 
           {mode === "pay" && (
             <div className="mt-4">
-              <Field label="Pay to (school, clinic, landlord…)" hint={payee && !validPayee ? "check the address" : undefined}>
+              <Field label={t.savings.payTo} hint={payee && !validPayee ? t.common.checkAddress : undefined}>
                 <TextInput
                   value={payee}
                   onChange={(e) => setPayee(e.target.value.trim())}
@@ -102,10 +104,10 @@ export function SavingsCard({ address }: { address: string }) {
               <Field
                 label={
                   mode === "add"
-                    ? "Move from your wallet (USDC)"
+                    ? t.savings.fromWallet
                     : mode === "withdraw"
-                      ? "Withdraw to your wallet (USDC)"
-                      : "Amount from savings (USDC)"
+                      ? t.savings.toWallet
+                      : t.savings.fromSavings
                 }
               >
                 <AmountInput value={amount} onChange={setAmount} />
@@ -113,11 +115,17 @@ export function SavingsCard({ address }: { address: string }) {
             </div>
             {mode !== "add" && (
               <Button variant="ghost" onClick={() => setAmount(savings)} disabled={tx.loading}>
-                Max
+                {t.common.max}
               </Button>
             )}
             <Button variant="gold" onClick={submit} disabled={!valid || tx.loading}>
-              {tx.loading ? "Signing…" : mode === "add" ? "Set aside" : mode === "withdraw" ? "Withdraw" : "Pay"}
+              {tx.loading
+                ? t.common.signing
+                : mode === "add"
+                  ? t.savings.setAside
+                  : mode === "withdraw"
+                    ? t.savings.withdraw
+                    : t.savings.pay}
             </Button>
           </div>
         </>
@@ -126,7 +134,13 @@ export function SavingsCard({ address }: { address: string }) {
       <TxStatus
         error={tx.error}
         hash={tx.hash}
-        success={mode === "add" ? "Saved" : mode === "withdraw" ? "Withdrawn" : "Paid"}
+        success={
+          mode === "add"
+            ? t.savings.savedDone
+            : mode === "withdraw"
+              ? t.savings.withdrawnDone
+              : t.savings.paidDone
+        }
       />
     </Card>
   );

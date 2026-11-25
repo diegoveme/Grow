@@ -3,6 +3,7 @@
 import type { PaymentRecord } from "@/lib/api";
 import { explorerTx } from "@/lib/config";
 import { formatAmount, shortAddress, timeAgo } from "@/lib/format";
+import { useLocale, useT } from "@/lib/i18n";
 
 export function ActivityList({
   items,
@@ -13,10 +14,12 @@ export function ActivityList({
   viewer: string;
   emptyHint?: string;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   if (!items.length) {
     return (
       <div className="rounded-md border border-dashed border-luz/10 px-4 py-10 text-center text-sm opacity-50">
-        {emptyHint ?? "No transactions yet."}
+        {emptyHint ?? t.activity.emptyShort}
       </div>
     );
   }
@@ -40,13 +43,13 @@ export function ActivityList({
             <div className="min-w-0 flex-1">
               <div className="text-sm">
                 {p.type === "create_account"
-                  ? "Account created"
+                  ? t.activity.accountCreated
                   : incoming
-                    ? "Received"
-                    : "Sent"}
+                    ? t.activity.received
+                    : t.activity.sent}
                 <span className="opacity-40">
                   {" "}
-                  {incoming ? "from" : "to"} {shortAddress(counterparty || "account", 4, 4)}
+                  {incoming ? t.activity.from : t.activity.to} {shortAddress(counterparty || "account", 4, 4)}
                 </span>
               </div>
               <a
@@ -55,7 +58,7 @@ export function ActivityList({
                 rel="noreferrer"
                 className="font-mono text-xs opacity-40 transition-colors hover:text-agua"
               >
-                {timeAgo(p.createdAt)} · {shortAddress(p.hash, 6, 4)} ↗
+                {timeAgo(p.createdAt, locale)} · {shortAddress(p.hash, 6, 4)} ↗
               </a>
             </div>
             <div

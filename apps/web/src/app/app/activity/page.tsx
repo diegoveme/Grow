@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { useWallet } from "@/lib/wallet";
 import { usePayments } from "@/lib/hooks";
 import { explorerAccount } from "@/lib/config";
+import { useT } from "@/lib/i18n";
 
 export default function ActivityPage() {
   const { address } = useWallet();
+  const t = useT();
   const { data: payments, loading, refresh } = usePayments(address, 50);
 
   if (!address) return null;
@@ -17,12 +19,12 @@ export default function ActivityPage() {
   return (
     <div className="mx-auto max-w-2xl animate-rise">
       <PageHeader
-        eyebrow="Activity"
-        title="Transaction history"
-        subtitle="Every payment in and out of your wallet, straight from the Stellar ledger."
+        eyebrow={t.activity.eyebrow}
+        title={t.activity.title}
+        subtitle={t.activity.subtitle}
         action={
           <Button variant="ghost" onClick={() => refresh()} disabled={loading}>
-            {loading ? "Refreshing…" : "Refresh"}
+            {loading ? t.activity.refreshing : t.activity.refresh}
           </Button>
         }
       />
@@ -31,7 +33,7 @@ export default function ActivityPage() {
         <ActivityList
           items={payments ?? []}
           viewer={address}
-          emptyHint="No transactions yet. Once you send or receive, they'll show up here."
+          emptyHint={t.activity.empty}
         />
       </Card>
 
@@ -41,7 +43,7 @@ export default function ActivityPage() {
         rel="noreferrer"
         className="mt-4 block text-center text-xs text-agua/70 hover:text-agua"
       >
-        View full account on StellarView ↗
+        {t.activity.fullAccount}
       </a>
     </div>
   );

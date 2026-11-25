@@ -22,19 +22,29 @@ export function formatAmount(amount: string | number, code?: string): string {
   return code ? `${s} ${code}` : s;
 }
 
-/** Compact relative time, e.g. "3m ago", "2h ago", "5d ago". */
-export function timeAgo(iso: string): string {
+/** "3 min", "2 h", "5 d": a compact span, in the language's short units. */
+function span(secs: number, locale: "en" | "es"): string {
+  const unit = locale === "es" ? { s: " s", m: " min", h: " h", d: " d" } : { s: "s", m: "m", h: "h", d: "d" };
+  if (secs < 60) return `${secs}${unit.s}`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}${unit.m}`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 48) return `${hours}${unit.h}`;
+  return `${Math.floor(hours / 24)}${unit.d}`;
+}
+
+/** Compact relative time, e.g. "3m ago" / "hace 3 min"; dates past a month. */
+export function timeAgo(iso: string, locale: "en" | "es" = "en"): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return "";
   const secs = Math.max(1, Math.floor((Date.now() - then) / 1000));
-  if (secs < 60) return `${secs}s ago`;
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (secs >= 30 * 86_400) {
+    return new Date(iso).toLocaleDateString(locale === "es" ? "es" : "en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  }
+  return locale === "es" ? `hace ${span(secs, locale)}` : `${span(secs, locale)} ago`;
 }
 
 /** Compact number for KPIs and axes: 1,284 / 12.9K / 4.2M. */
@@ -44,14 +54,9 @@ export function formatCompact(value: string | number): string {
   return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(n);
 }
 
-/** Compact time until a future moment, e.g. "in 3m", "in 2h", "in 5d", or "now". */
-export function timeUntil(iso: string): string {
+/** Compact time until a future moment, e.g. "in 3m" / "en 3 min", or "now". */
+export function timeUntil(iso: string, locale: "en" | "es" = "en"): string {
   const secs = Math.floor((new Date(iso).getTime() - Date.now()) / 1000);
-  if (Number.isNaN(secs) || secs <= 0) return "now";
-  if (secs < 60) return `in ${secs}s`;
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `in ${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 48) return `in ${hours}h`;
-  return `in ${Math.floor(hours / 24)}d`;
+  if (Number.isNaN(secs) || secs <= 0) return locale === "es" ? "ahora" : "now";
+  return locale === "es" ? `en ${span(secs, locale)}` : `in ${span(secs, locale)}`;
 }

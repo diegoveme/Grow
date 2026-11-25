@@ -1,3 +1,7 @@
+"use client";
+
+import { useT } from "@/lib/i18n";
+
 /** The signature Grow 70/30 split visualization. */
 export function SplitBar({
   spendableBps,
@@ -6,6 +10,7 @@ export function SplitBar({
   spendableBps: number;
   className?: string;
 }) {
+  const t = useT();
   const spend = Math.round(spendableBps / 100);
   const grow = 100 - spend;
   return (
@@ -16,10 +21,10 @@ export function SplitBar({
       </div>
       <div className="mt-2.5 flex justify-between text-xs">
         <span className="flex items-center gap-1.5 text-agua">
-          <span className="h-2 w-2 rounded-full bg-agua" /> Spendable · {spend}%
+          <span className="h-2 w-2 rounded-full bg-agua" /> {t.split.spendable(spend)}
         </span>
         <span className="flex items-center gap-1.5 text-oro">
-          <span className="h-2 w-2 rounded-full bg-oro" /> Growing · {grow}%
+          <span className="h-2 w-2 rounded-full bg-oro" /> {t.split.saved(grow)}
         </span>
       </div>
     </div>
