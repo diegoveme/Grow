@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { useWallet } from "./wallet";
+import { useT } from "./i18n";
+import type { Messages } from "./i18n/en";
 import { api } from "./api";
 import { config } from "./config";
 
@@ -21,6 +23,7 @@ type Submitter = (signedXdr: string) => Promise<{ hash: string; status: string }
  */
 export function useTx() {
   const { signTransaction } = useWallet();
+  const t = useT();
   const [state, setState] = useState<TxState>({ loading: false, error: null, hash: null });
 
   const run = useCallback(
@@ -35,19 +38,17 @@ export function useTx() {
         const { hash, status } = await submit(signed);
         if (status !== "SUCCESS") {
           // Still pending after the API's wait: don't claim success yet.
-          throw new Error(
-            `Submitted but not confirmed yet (${status}). Check it in Activity shortly. Tx ${hash}`,
-          );
+          throw new Error(t.errors.pending(status, hash));
         }
         setState({ loading: false, error: null, hash });
         return hash;
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        setState({ loading: false, error: friendly(message), hash: null });
+        setState({ loading: false, error: friendly(message, t.errors), hash: null });
         return null;
       }
     },
-    [signTransaction],
+    [signTransaction, t],
   );
 
   const reset = useCallback(() => setState({ loading: false, error: null, hash: null }), []);
@@ -55,24 +56,17 @@ export function useTx() {
   return { ...state, run, reset };
 }
 
-function friendly(message: string): string {
+/** Turn wallet/network errors into a message in the app's language. */
+function friendly(message: string, t: Messages["errors"]): string {
   const lower = message.toLowerCase();
-  if (message.includes("503")) {
-    return "This action needs an on-chain contract/vault configured first.";
-  }
+  if (message.includes("503")) return t.notConfigured;
   if (lower.includes("user") && (lower.includes("reject") || lower.includes("declin"))) {
-    return "Signature request was rejected.";
+    return t.rejected;
   }
-  if (lower.includes("op_no_trust") || lower.includes("no usdc trustline")) {
-    return "The recipient hasn't added USDC yet, so they can't receive it.";
-  }
-  if (lower.includes("op_underfunded") || lower.includes("underfunded")) {
-    return "Not enough balance for this payment (remember XLM keeps a small reserve).";
-  }
+  if (lower.includes("op_no_trust") || lower.includes("no usdc trustline")) return t.noTrustline;
+  if (lower.includes("op_underfunded") || lower.includes("underfunded")) return t.underfunded;
   if (lower.includes("not funded") || lower.includes("not activated")) {
-    return config.network === "PUBLIC"
-      ? "Your account isn't activated yet. Send it some XLM first."
-      : "Your account isn't funded yet. Use “Fund testnet XLM” first.";
+    return config.network === "PUBLIC" ? t.notActivated : t.notFunded;
   }
   return message.replace(/^API \d+:\s*/, "");
 }

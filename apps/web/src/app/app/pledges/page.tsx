@@ -15,10 +15,10 @@ import { formatUsd, shortAddress, timeUntil } from "@/lib/format";
 import { usePledges, useSplitterConfig } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
+import { useLocale, useT } from "@/lib/i18n";
 
 type Window = "1h" | "7d" | "30d" | "90d";
 const WINDOWS: Record<Window, number> = { "1h": 3_600, "7d": 7 * 86_400, "30d": 30 * 86_400, "90d": 90 * 86_400 };
-const WINDOW_LABELS: Record<Window, string> = { "1h": "1 hour", "7d": "7 days", "30d": "30 days", "90d": "90 days" };
 
 const expired = (p: PledgeView) => new Date(p.expiresAt).getTime() < Date.now();
 
@@ -29,6 +29,7 @@ const expired = (p: PledgeView) => new Date(p.expiresAt).getTime() < Date.now();
  */
 export default function PledgesPage() {
   const { address } = useWallet();
+  const t = useT();
   const { data: pledges, refresh } = usePledges(address);
   const splitter = useSplitterConfig();
   const tx = useTx();
@@ -78,15 +79,15 @@ export default function PledgesPage() {
   return (
     <div className="mx-auto max-w-2xl animate-rise">
       <PageHeader
-        eyebrow="Earmarked"
-        title="Pay it where it's needed"
-        subtitle="Set money aside for a specific purpose, like school fees or a clinic. Your family pays it straight to them; if it isn't used in time, it comes back to you."
+        eyebrow={t.pledges.eyebrow}
+        title={t.pledges.title}
+        subtitle={t.pledges.subtitle}
       />
 
       <Card>
-        <CardLabel>Earmark a payment</CardLabel>
+        <CardLabel>{t.pledges.create}</CardLabel>
         <div className="space-y-4">
-          <Field label="Who decides when to pay (your family)">
+          <Field label={t.pledges.beneficiary}>
             <TextInput
               value={beneficiary}
               onChange={(e) => setBeneficiary(e.target.value.trim())}
@@ -95,7 +96,7 @@ export default function PledgesPage() {
               className="font-mono"
             />
           </Field>
-          <Field label="Who gets paid (school, clinic, landlord…)">
+          <Field label={t.pledges.payee}>
             <TextInput
               value={payee}
               onChange={(e) => setPayee(e.target.value.trim())}
@@ -105,42 +106,44 @@ export default function PledgesPage() {
             />
           </Field>
           <Field
-            label="Amount (USDC)"
-            hint={splitter ? `beta limit ${formatUsd(splitter.userCap)}` : undefined}
+            label={t.pledges.amount}
+            hint={splitter ? t.pledges.betaLimit(formatUsd(splitter.userCap)) : undefined}
           >
             <AmountInput value={amount} onChange={setAmount} />
           </Field>
-          <Field label="Can be paid within">
+          <Field label={t.pledges.window}>
             <Segmented
               value={window}
               onChange={setWindow}
               accent="oro"
-              options={(Object.keys(WINDOWS) as Window[]).map((w) => ({ value: w, label: WINDOW_LABELS[w] }))}
+              options={(Object.keys(WINDOWS) as Window[]).map((w) => ({ value: w, label: t.pledges.windows[w] }))}
             />
           </Field>
         </div>
         <Button variant="gold" onClick={create} disabled={!valid || tx.loading} className="mt-6 w-full">
-          {tx.loading ? "Signing…" : "Earmark it"}
+          {tx.loading ? t.common.signing : t.pledges.submit}
         </Button>
         {tx.error && <p className="mt-3 text-center text-xs text-oro">{tx.error}</p>}
         {lastHash && !tx.loading && (
           <p className="mt-3 text-center text-xs text-brote">
-            <ExplorerLink href={explorerTx(lastHash)}>Done · view transaction</ExplorerLink>
+            <ExplorerLink href={explorerTx(lastHash)}>
+              {t.pledges.done} · {t.common.viewTransaction}
+            </ExplorerLink>
           </p>
         )}
       </Card>
 
       <Card className="mt-4">
-        <CardLabel>Waiting for you to pay</CardLabel>
+        <CardLabel>{t.pledges.toPay}</CardLabel>
         <PledgeList
           items={toRelease}
-          empty="Nobody has earmarked a payment for you."
+          empty={t.pledges.toPayEmpty}
           action={(p) =>
             expired(p) ? (
-              <span className="text-xs opacity-50">expired</span>
+              <span className="text-xs opacity-50">{t.pledges.expired}</span>
             ) : (
               <Button variant="gold" onClick={() => settle("release", p.id)} disabled={tx.loading}>
-                Pay {shortAddress(p.payee, 4, 4)}
+                {t.pledges.payPayee(shortAddress(p.payee, 4, 4))}
               </Button>
             )
           }
@@ -148,17 +151,17 @@ export default function PledgesPage() {
       </Card>
 
       <Card className="mt-4">
-        <CardLabel>You earmarked</CardLabel>
+        <CardLabel>{t.pledges.sent}</CardLabel>
         <PledgeList
           items={sent}
-          empty="You haven't earmarked any payment."
+          empty={t.pledges.sentEmpty}
           action={(p) =>
             expired(p) ? (
               <Button variant="ghost" onClick={() => settle("refund", p.id)} disabled={tx.loading}>
-                Take it back
+                {t.pledges.takeBack}
               </Button>
             ) : (
-              <span className="text-xs opacity-50">waiting</span>
+              <span className="text-xs opacity-50">{t.pledges.waiting}</span>
             )
           }
         />
@@ -176,6 +179,8 @@ function PledgeList({
   empty: string;
   action: (p: PledgeView) => React.ReactNode;
 }) {
+  const t = useT();
+  const { locale } = useLocale();
   if (!items.length) return <p className="text-sm opacity-50">{empty}</p>;
   return (
     <ul className="divide-y divide-luz/5">
@@ -183,11 +188,12 @@ function PledgeList({
         <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
           <div>
             <div>
-              {formatUsd(p.amount)} for{" "}
+              {t.pledges.forPayee(formatUsd(p.amount))}{" "}
               <span className="font-mono text-xs">{shortAddress(p.payee, 4, 4)}</span>
             </div>
             <div className="text-xs opacity-50">
-              {expired(p) ? "expired" : `pay ${timeUntil(p.expiresAt)}`} · from{" "}
+              {expired(p) ? t.pledges.expired : t.pledges.payWithin(timeUntil(p.expiresAt, locale))} ·{" "}
+              {t.pledges.from}{" "}
               <span className="font-mono">{shortAddress(p.from, 4, 4)}</span>
             </div>
           </div>
