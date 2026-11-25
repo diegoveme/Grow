@@ -127,7 +127,7 @@ export default function SettingsPage() {
   );
 }
 
-/** Light paper, or a charcoal gray-black that keeps the greens vivid. */
+/** Light paper, or a neutral dark gray-black that keeps the greens vivid. */
 function Appearance() {
   const { preference, resolved, setPreference } = useTheme();
   const t = useT();

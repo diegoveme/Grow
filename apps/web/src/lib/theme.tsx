@@ -11,7 +11,7 @@ const STORAGE_KEY = "grow-theme";
 
 /**
  * Runs in <head> before the first paint, so a reload never flashes the light
- * theme for someone who chose charcoal. Keep it tiny and dependency-free.
+ * theme for someone who chose dark. Keep it tiny and dependency-free.
  */
 export const THEME_INIT_SCRIPT = `(function(){try{var p=localStorage.getItem("${STORAGE_KEY}")||"light";var d=p==="dark"||(p==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light";}catch(e){}})();`;
 
@@ -33,7 +33,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 /** Applies the theme to <html data-theme> and remembers the choice. */
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // null until the stored choice is read: applying the default before that
-  // would flip a charcoal page back to light for a frame on every load.
+  // would flip a dark page back to light for a frame on every load.
   const [stored, setPref] = useState<ThemePreference | null>(null);
   const [resolved, setResolved] = useState<ResolvedTheme>("light");
   const preference: ThemePreference = stored ?? "light";

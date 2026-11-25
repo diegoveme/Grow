@@ -17,7 +17,7 @@ interface Root {
   op: number;
 }
 
-// Theme tokens, so the roots follow light and charcoal themes.
+// Theme tokens, so the roots follow the light and dark themes.
 const INK = "var(--color-luz)";
 const LEAF = "var(--color-agua)";
 

@@ -295,12 +295,12 @@ export const en = {
     saved: "Split saved on-chain ✓",
     appearance: "Appearance",
     appearanceBody:
-      "Charcoal is a soft gray-black, easier on the eyes at night, with the greens kept bright.",
+      "Dark is a soft neutral gray-black, easier on the eyes at night, with the greens kept bright.",
     themeLight: "Light",
-    themeDark: "Charcoal",
+    themeDark: "Dark",
     themeSystem: "System",
     followingDevice: (dark: boolean) =>
-      `Following your device: ${dark ? "charcoal" : "light"} right now.`,
+      `Following your device: ${dark ? "dark" : "light"} right now.`,
     language: "Language",
     languageBody: "Grow speaks English and Spanish.",
     connection: "Connection",

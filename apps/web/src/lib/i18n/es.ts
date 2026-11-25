@@ -293,12 +293,12 @@ export const es: Messages = {
     saved: "Reparto guardado on-chain ✓",
     appearance: "Apariencia",
     appearanceBody:
-      "Carbón es un gris oscuro suave, más cómodo de noche, con los verdes bien vivos.",
+      "El modo oscuro es un gris negro neutro, más cómodo de noche, con los verdes bien vivos.",
     themeLight: "Claro",
-    themeDark: "Carbón",
+    themeDark: "Oscuro",
     themeSystem: "Sistema",
     followingDevice: (dark: boolean) =>
-      `Siguiendo tu dispositivo: ahora en ${dark ? "carbón" : "claro"}.`,
+      `Siguiendo tu dispositivo: ahora en ${dark ? "oscuro" : "claro"}.`,
     language: "Idioma",
     languageBody: "Grow habla español e inglés.",
     connection: "Conexión",
