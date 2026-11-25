@@ -141,7 +141,9 @@ Mainnet needs an explicit identity and confirmation, see
 > contract interface. Redeploy and update `YIELD_SPLITTER_CONTRACT_ID` to use this
 > version of the app.
 
-See [docs/testnet.md](docs/testnet.md) for testnet details.
+See [docs/testnet.md](docs/testnet.md) for testnet details,
+[docs/architecture.md](docs/architecture.md) for how the pieces fit and
+[docs/security.md](docs/security.md) for the threat model and monitoring plan.
 
 ---
 
