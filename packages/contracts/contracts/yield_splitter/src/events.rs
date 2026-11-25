@@ -44,6 +44,17 @@ pub struct SavingsWithdrawn {
     pub remaining: i128,
 }
 
+/// A recipient paid someone else directly out of their savings.
+#[contractevent]
+#[derive(Clone)]
+pub struct SavingsSpent {
+    #[topic]
+    pub user: Address,
+    pub to: Address,
+    pub amount: i128,
+    pub remaining: i128,
+}
+
 /// The admin changed the per-recipient savings cap.
 #[contractevent]
 #[derive(Clone)]

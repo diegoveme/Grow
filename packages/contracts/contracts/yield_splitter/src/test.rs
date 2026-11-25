@@ -436,6 +436,70 @@ fn deposit_savings_rejects_zero() {
     h.client.deposit_savings(&user, &0);
 }
 
+// ── pay_from_savings ────────────────────────────────────────────────────────
+
+#[test]
+fn pay_from_savings_sends_straight_to_the_payee() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    let school = Address::generate(&h.env);
+    h.client.receive(&sender, &recipient, &200); // saves 60
+
+    let remaining = h.client.pay_from_savings(&recipient, &school, &45);
+
+    assert_eq!(remaining, 15);
+    assert_eq!(h.client.savings(&recipient), 15);
+    assert_eq!(h.token.balance(&school), 45);
+    // The recipient's wallet only ever got the spendable part.
+    assert_eq!(h.token.balance(&recipient), 140);
+    assert_eq!(h.token.balance(&h.client.address), 15);
+}
+
+#[test]
+fn pay_from_savings_requires_the_savers_signature() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    let school = Address::generate(&h.env);
+    h.client.receive(&sender, &recipient, &200);
+    h.client.pay_from_savings(&recipient, &school, &10);
+
+    let auths = h.env.auths();
+    assert_eq!(auths.len(), 1);
+    assert_eq!(auths[0].0, recipient);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #4)")]
+fn pay_from_savings_cannot_spend_more_than_saved() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    let school = Address::generate(&h.env);
+    h.client.receive(&sender, &recipient, &200);
+    h.client.pay_from_savings(&recipient, &school, &61);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #3)")]
+fn pay_from_savings_rejects_zero() {
+    let h = setup();
+    let recipient = Address::generate(&h.env);
+    let school = Address::generate(&h.env);
+    h.client.pay_from_savings(&recipient, &school, &0);
+}
+
+#[test]
+fn pay_from_savings_still_works_while_paused() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    let school = Address::generate(&h.env);
+    h.client.receive(&sender, &recipient, &200);
+    h.client.set_paused(&true);
+
+    h.client.pay_from_savings(&recipient, &school, &60);
+
+    assert_eq!(h.token.balance(&school), 60);
+}
+
 // ── upgrade ─────────────────────────────────────────────────────────────────
 //
 // Needs real wasm to swap in, so it runs with the `upgrade-test` feature after

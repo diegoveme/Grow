@@ -14,7 +14,8 @@
 //! recipient's own wallet, outside this contract.
 //!
 //! Recipients can also top up savings from their own wallet
-//! (`deposit_savings`) and withdraw them at any time (`withdraw_savings`).
+//! (`deposit_savings`), withdraw them at any time (`withdraw_savings`) or pay
+//! someone directly out of them (`pay_from_savings`).
 //!
 //! Beta guardrails: savings per recipient are capped (`user_cap`), and the
 //! admin can pause new deposits. Withdrawals always stay open. The admin can
@@ -32,7 +33,10 @@ pub use errors::Error;
 pub use storage::{DataKey, USER_TTL_EXTEND_TO, USER_TTL_THRESHOLD};
 pub use types::{Config, Position};
 
-use events::{FundsReceived, PausedSet, SavingsDeposited, SavingsWithdrawn, SplitSet, UserCapSet};
+use events::{
+    FundsReceived, PausedSet, SavingsDeposited, SavingsSpent, SavingsWithdrawn, SplitSet,
+    UserCapSet,
+};
 use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, BytesN, Env};
 
 /// 100% expressed in basis points.
@@ -192,6 +196,34 @@ impl YieldSplitter {
         );
         storage::bump_instance(&env);
         SavingsWithdrawn {
+            to,
+            amount,
+            remaining,
+        }
+        .publish(&env);
+        remaining
+    }
+
+    /// Pay `amount` from the caller's savings straight to `to` (a school, a
+    /// clinic, a landlord) without passing through the caller's wallet.
+    /// Like a withdrawal, it is never paused. Returns the savings left.
+    pub fn pay_from_savings(env: Env, user: Address, to: Address, amount: i128) -> i128 {
+        user.require_auth();
+        if amount <= 0 {
+            panic_with_error!(&env, Error::InvalidAmount);
+        }
+        if amount > storage::savings(&env, &user) {
+            panic_with_error!(&env, Error::InsufficientSavings);
+        }
+        let remaining = storage::add_savings(&env, &user, -amount);
+        token::Client::new(&env, &storage::token(&env)).transfer(
+            &env.current_contract_address(),
+            &to,
+            &amount,
+        );
+        storage::bump_instance(&env);
+        SavingsSpent {
+            user,
             to,
             amount,
             remaining,
