@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { formatUsd } from "@/lib/format";
 import { usePosition } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
+import { useT } from "@/lib/i18n";
 
 type Mode = "deposit" | "savings" | "withdraw";
 
@@ -20,6 +21,7 @@ type Mode = "deposit" | "savings" | "withdraw";
  * or move Grow savings into it: withdraw_savings, then deposit (two signatures).
  */
 export function VaultManage({ address, onDone }: { address: string; onDone: () => void }) {
+  const t = useT();
   const tx = useTx();
   const { data: position, refresh: refreshSavings } = usePosition(address);
   const [mode, setMode] = useState<Mode>("deposit");
@@ -33,10 +35,10 @@ export function VaultManage({ address, onDone }: { address: string; onDone: () =
     if (!valid) return;
     let hash: string | null;
     if (mode === "savings") {
-      setStep("1/2 · Take it out of your Grow savings");
+      setStep(t.vault.stepOut);
       hash = await tx.run(() => api.buildWithdrawSavings(address, amount), api.submitSoroban);
       if (hash) {
-        setStep("2/2 · Deposit it into the vault");
+        setStep(t.vault.stepIn);
         hash = await tx.run(() => api.buildVaultDeposit(address, amount), api.submitSoroban);
       }
       setStep(null);
@@ -58,7 +60,7 @@ export function VaultManage({ address, onDone }: { address: string; onDone: () =
 
   return (
     <Card className="mt-4">
-      <CardLabel>Manage your vault</CardLabel>
+      <CardLabel>{t.vault.manage}</CardLabel>
 
       <Segmented
         className="mb-4"
@@ -66,38 +68,38 @@ export function VaultManage({ address, onDone }: { address: string; onDone: () =
         value={mode}
         onChange={setMode}
         options={[
-          { value: "deposit", label: "From wallet" },
-          { value: "savings", label: "From savings", disabled: savings <= 0 },
-          { value: "withdraw", label: "Withdraw" },
+          { value: "deposit", label: t.vault.fromWallet },
+          { value: "savings", label: t.vault.fromSavings, disabled: savings <= 0 },
+          { value: "withdraw", label: t.vault.withdraw },
         ]}
       />
 
       <Field
-        label={mode === "withdraw" ? "Amount to withdraw (USDC)" : "Amount to deposit (USDC)"}
-        hint={mode === "savings" ? `savings: ${formatUsd(savings)}` : undefined}
+        label={mode === "withdraw" ? t.vault.amountWithdraw : t.vault.amountDeposit}
+        hint={mode === "savings" ? t.vault.savingsHint(formatUsd(savings)) : undefined}
       >
         <AmountInput value={amount} onChange={setAmount} />
       </Field>
 
       <Button variant="gold" onClick={run} disabled={!valid || tx.loading} className="mt-5 w-full">
         {tx.loading
-          ? (step ?? "Submitting…")
+          ? (step ?? t.vault.submitting)
           : mode === "withdraw"
-            ? "Withdraw from vault"
+            ? t.vault.withdrawBtn
             : mode === "savings"
-              ? "Move savings to the vault"
-              : "Deposit to vault"}
+              ? t.vault.moveSavingsBtn
+              : t.vault.depositBtn}
       </Button>
 
       <TxStatus
         error={tx.error}
         hash={tx.hash}
-        success={mode === "withdraw" ? "Withdrawn" : "Deposited"}
+        success={mode === "withdraw" ? t.vault.withdrawn : t.vault.deposited}
         center
       />
 
       <p className="mt-3 text-center text-xs opacity-40">
-        Deposits supply into the Blend pool via DeFindex. The rate is variable and not guaranteed.
+        {t.vault.footnote}
       </p>
     </Card>
   );
