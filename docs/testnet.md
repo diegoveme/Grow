@@ -17,3 +17,9 @@ The user's wallet signs them, and `/splits/submit` sends them to the network.
 ## Testnet transaction
 `set_split` called on yield_splitter:
 https://stellar.expert/explorer/testnet/tx/d586bd597a768ce10dbe7d2ef1e8073b4cd523b10c7dbbcbb8dfddb7b7ee6395
+
+> The `yield_splitter` above was deployed with the previous interface
+> (`initialize`, `deposit_vault`, `claim_yield`). The current contract uses a
+> constructor, pays the spendable share straight to the recipient and adds
+> `withdraw_savings`, a savings cap and a pause switch. Redeploy with
+> `bun run deploy` in `packages/contracts` and update this page with the new id.

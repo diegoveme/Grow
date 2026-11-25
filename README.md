@@ -4,7 +4,7 @@
 
 ### Remittances on Stellar that pay you back.
 
-*Your money arrives in seconds — and a part of it takes root, earning yield on its own.*
+*Your money arrives in seconds, and a part of it takes root.*
 
 [![Stellar](https://img.shields.io/badge/Stellar-Testnet-3ECAD6?logo=stellar&logoColor=white)](https://stellar.org)
 [![Soroban](https://img.shields.io/badge/Soroban-Rust-C8A84B?logo=rust&logoColor=white)](https://soroban.stellar.org)
@@ -27,27 +27,24 @@ for granted.
 
 ## The solution
 
-**Grow** is a remittance dApp on Stellar. A family receives **USDC** instantly, and a
-**configurable fraction** automatically flows into a yield vault
-([DeFindex](https://docs.defindex.io/) → [Blend](https://docs.blend.capital/)),
-earning APY — while the rest stays instantly spendable and cash-out-ready through a
-SEP-24 anchor. A **Soroban smart contract** performs the split on-chain.
+**Grow** is a remittance dApp on Stellar. A sender pays **USDC** through a
+**Soroban smart contract** that splits it by the recipient's own ratio: the
+spendable share lands in the recipient's wallet instantly (cash-out ready through
+a SEP-24 anchor), and the rest is **saved for them** on-chain. Recipients can
+withdraw their savings any time, or put USDC to work in a yield vault
+([DeFindex](https://docs.defindex.io/) → [Blend](https://docs.blend.capital/))
+from the same dashboard.
 
 ```
-                       ┌──────────────────────────────────────────────┐
-   Sender ──USDC──▶    │  Stellar Anchor (SEP-24)  ─────────────────▶  │
-                       └──────────────────────────────────────────────┘
-                                            │
-                                            ▼
-                            ┌───────────────────────────────┐
-                            │   yield_splitter  (Soroban)    │
-                            │   receive() → split(ratio)     │
-                            └───────────────────────────────┘
-                                            │
-                    ┌───────────── 70% ─────┴───── 30% ──────────────┐
-                    ▼                                                 ▼
-        Recipient wallet (USDC)                          DeFindex vault → Blend pool
-        spendable · cash-out                             earns APY · claim_yield()
+   Sender ──USDC──▶  yield_splitter.receive(from, to, amount)   (Soroban)
+                                     │  split by the recipient's ratio
+                  ┌──────── 70% ─────┴───── 30% ─────────┐
+                  ▼                                       ▼
+      Recipient wallet (USDC)                Savings held for the recipient
+      spendable · cash-out (SEP-24)          withdraw_savings() any time
+                                                          │
+                                                          ▼  from the wallet
+                                             DeFindex vault → Blend pool (APY)
 ```
 
 The split ratio is chosen by each recipient and can change anytime.
@@ -56,16 +53,19 @@ The split ratio is chosen by each recipient and can change anytime.
 
 ## Features
 
-- 🔗 **On-chain split** — a Soroban (Rust) contract custodies funds, splits each
-  remittance per the recipient's ratio, and emits typed events.
-- 🌾 **Automatic yield** — the savings portion routes into a DeFindex vault backed by
-  a Blend lending pool.
-- 👛 **Any Stellar wallet** — Freighter, xBull, Albedo, Lobstr, Hana… via the
+- 🔗 **On-chain split**: a Soroban (Rust) contract pays the spendable share
+  straight to the recipient and keeps only their savings, emitting typed events.
+- 🌾 **Savings that can grow**: withdraw savings any time, and deposit USDC into
+  a DeFindex vault backed by a Blend lending pool to earn APY.
+- 🛡️ **Beta guardrails**: per-recipient savings cap, deposit pause switch
+  (withdrawals always open) and admin upgrade for fixes.
+- 👛 **Any Stellar wallet**: Freighter, xBull, Albedo, Lobstr, Hana… via the
   [Stellar Wallets Kit](https://stellarwalletskit.dev/).
-- 🏦 **Fiat on/off-ramp** — SEP-10 auth + SEP-24 interactive deposit/withdraw.
-- 🎚️ **Configurable** — set your spendable/vault ratio on-chain from the dashboard.
-- 🪪 **Wallet-signed, key-safe** — the API builds unsigned transactions; the browser
-  wallet signs. No private keys ever leave the user.
+- 🏦 **Fiat on/off-ramp**: SEP-10 auth + SEP-24 interactive deposit/withdraw
+  (testnet reference anchor).
+- 🎚️ **Configurable**: set your spendable/savings ratio on-chain from the dashboard.
+- 🪪 **Wallet-signed, key-safe**: the API builds unsigned transactions and the
+  browser wallet signs. No private keys ever leave the user.
 
 ---
 
@@ -85,28 +85,29 @@ The split ratio is chosen by each recipient and can change anytime.
 ## Monorepo
 
 ```
-raíz/
+grow/
 ├── apps/
-│   ├── web/          Next.js — landing + dApp dashboard
-│   └── api/          NestJS — anchor, splits, vault, persistence
+│   ├── web/          Next.js: landing + dApp dashboard
+│   └── api/          NestJS: anchor, splits, vault, persistence
 ├── packages/
-│   ├── contracts/    Soroban — yield_splitter (Rust) + deploy script
+│   ├── contracts/    Soroban: yield_splitter (Rust) + deploy script
 │   └── shared/       Design tokens, domain types, network config
 └── …
 ```
 
 | Package | Purpose |
 | --- | --- |
-| [`apps/web`](apps/web) | Landing page + the dApp (connect wallet, balances, split, send, vault) |
+| [`apps/web`](apps/web) | Landing page + the dApp (connect wallet, balances, split, send, savings, vault) |
 | [`apps/api`](apps/api) | SEP-10/24 anchor proxy, contract reads & tx building, yield, remittances |
-| [`packages/contracts`](packages/contracts) | The `yield_splitter` Soroban contract + tests + testnet deploy |
-| [`packages/shared`](packages/shared) | Raíz design tokens, shared types, testnet constants |
+| [`packages/contracts`](packages/contracts) | The `yield_splitter` Soroban contract + tests + deploy script |
+| [`packages/shared`](packages/shared) | Grow design tokens, shared types, validation and network constants |
 
 ---
 
 ## Getting started
 
-**Prerequisites:** [Bun](https://bun.sh) ≥ 1.1, and (for the contract) the
+**Prerequisites:** [Bun](https://bun.sh) ≥ 1.1, [Node.js](https://nodejs.org) ≥ 22.12
+(see `.nvmrc`), and (for the contract) the
 [Stellar CLI](https://developers.stellar.org/docs/tools/cli) + Rust with the
 `wasm32v1-none` target.
 
@@ -126,33 +127,38 @@ bun run web
 bun run api          # Swagger at http://localhost:3001/api/docs
 ```
 
-### Deploy the contract to testnet
+### Deploy the contract
 
 ```bash
 cd packages/contracts
-bun run deploy       # builds, deploys, initializes; prints the contract id
+bun run deploy       # builds, deploys with the constructor; prints the contract id
 ```
 
-> A reference deployment lives on **Stellar testnet**:
-> `CAI6YBXYA56VKKDQHMIGJDGSFTQJPJZHZODBS3YZCTTPM2UOGNLFVYYC`
+Mainnet needs an explicit identity and confirmation, see
+[packages/contracts](packages/contracts/README.md#deploy).
+
+> The earlier testnet deployment
+> (`CAI6YBXYA56VKKDQHMIGJDGSFTQJPJZHZODBS3YZCTTPM2UOGNLFVYYC`) uses the previous
+> contract interface. Redeploy and update `YIELD_SPLITTER_CONTRACT_ID` to use this
+> version of the app.
 
 See [docs/testnet.md](docs/testnet.md) for testnet details.
+
 ---
 
-## Smart contract — `yield_splitter`
+## Smart contract: `yield_splitter`
 
 | Function | Description |
 | --- | --- |
-| `initialize(admin, token)` | One-time setup (admin + USDC token) |
+| `__constructor(admin, token, user_cap)` | Runs with the deploy (no front-runnable init) |
 | `set_split(user, spendable_bps)` | Recipient picks their spendable % (basis points) |
-| `receive(from, to, amount)` | Pull USDC, split per ratio, credit balances |
-| `deposit_vault(to)` | Move the earmarked portion toward the yield vault |
-| `claim_yield(to, amount)` | Record accrued yield as claimable |
-| `withdraw(to, amount)` | Withdraw spendable USDC |
-| `position(user)` | Read balances + ratio |
+| `receive(from, to, amount)` | Pay the spendable share to `to`, hold the savings for `to` |
+| `withdraw_savings(to, amount)` | Recipient withdraws savings to their wallet |
+| `set_user_cap` · `set_paused` · `upgrade` | Admin guardrails (withdrawals are never paused) |
+| `position(user)` · `config()` | Read savings + ratio, and the contract settings |
 
-**Events:** `FundsReceived` · `VaultDeposited` · `YieldClaimed` · `SplitSet`
-&nbsp;·&nbsp; **Tests:** `cd packages/contracts && cargo test` (10 passing)
+**Events:** `SplitSet` · `FundsReceived` · `SavingsWithdrawn` · `UserCapSet` · `PausedSet`
+&nbsp;·&nbsp; **Tests:** `cd packages/contracts && cargo test` (25 passing)
 
 ---
 
@@ -163,18 +169,22 @@ Base URL `http://localhost:3001/api` · interactive docs at `/api/docs`.
 | Method | Endpoint | Description |
 | --- | --- | --- |
 | `GET` | `/health` | Service + database status |
-| `POST` | `/remittances/preview` | Preview the spendable/vault split |
-| `GET·POST` | `/remittances` | List / record remittances |
-| `GET` | `/splits/:address` | On-chain position for an address |
-| `POST` | `/splits/*/build` | Build unsigned set-split / receive / withdraw txs |
+| `GET` | `/accounts/:address` · `/accounts/:address/payments` | Balances, trustline, history |
+| `POST` | `/remittances/preview` | Preview the spendable/savings split |
+| `POST` | `/remittances` | Record a remittance by tx hash (verified on-chain) |
+| `GET` | `/remittances?address=` | Remittances sent or received by an address |
+| `GET` | `/splits/config` · `/splits/:address` | Contract settings and a recipient's position |
+| `POST` | `/splits/{ratio,receive,withdraw}/build` | Build unsigned set-split / receive / withdraw txs |
 | `POST` | `/splits/submit` | Submit a signed transaction |
 | `GET` | `/vault/apy` | Live vault APY (DeFindex → Blend) |
+| `POST` | `/vault/{deposit,withdraw}/build` | DeFindex deposit/withdraw by USDC amount |
 | `POST` | `/anchor/sep10/*` · `/anchor/sep24/*` | SEP-10 auth + SEP-24 deposit/withdraw |
 
 ---
 
 ## Roadmap
 
+- [ ] Contract-native vault deposits (savings flow into DeFindex from the contract)
 - [ ] Live DeFindex vault + Blend pool wiring on testnet
 - [ ] Recurring/streamed remittances
 - [ ] In-app cash-out UX polish for SEP-24
