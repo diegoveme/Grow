@@ -18,6 +18,16 @@ export function isContractId(value: string): boolean {
   return CONTRACT_ID_REGEX.test(value);
 }
 
+/**
+ * A positive-or-zero display amount with at most 7 decimals (Stellar's
+ * precision), e.g. "200", "0.5", "12.3456789". No signs, exponents or commas.
+ */
+export const AMOUNT_REGEX = /^\d{1,13}(\.\d{1,7})?$/;
+
+export function isValidAmount(value: string): boolean {
+  return AMOUNT_REGEX.test(value);
+}
+
 /** Assets Raíz moves today. Classic issuers are resolved at the app layer. */
 export const ASSET_CODES = ['XLM', 'USDC'] as const;
 export type AssetCode = (typeof ASSET_CODES)[number];

@@ -1,7 +1,8 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsString, Length, Matches } from 'class-validator';
-import { STELLAR_ADDRESS_REGEX } from '@raiz/shared';
+import { IsString, Matches } from 'class-validator';
+import { AMOUNT_REGEX, STELLAR_ADDRESS_REGEX } from '@raiz/shared';
+import { StellarAddressPipe } from '../common/stellar-address.pipe';
 import { VaultService } from './vault.service';
 
 class BuildVaultTxDto {
@@ -9,7 +10,7 @@ class BuildVaultTxDto {
   caller!: string;
 
   @IsString()
-  @Length(1, 32)
+  @Matches(AMOUNT_REGEX, { message: 'amount must be a decimal with up to 7 decimals' })
   amount!: string;
 }
 
@@ -26,7 +27,7 @@ export class VaultController {
 
   @Get('position/:address')
   @ApiOperation({ summary: 'Vault position for a recipient' })
-  position(@Param('address') address: string) {
+  position(@Param('address', StellarAddressPipe) address: string) {
     return this.vault.getPosition(address);
   }
 

@@ -362,7 +362,8 @@ export class StellarService {
     })
       .addOperation(operation)
       .setTimeout(180);
-    if (memo && memo.trim()) builder.addMemo(Memo.text(memo.trim().slice(0, 28)));
+    const memoText = truncateUtf8(memo?.trim() ?? '', 28);
+    if (memoText) builder.addMemo(Memo.text(memoText));
     return builder.build().toXDR();
   }
 
@@ -412,4 +413,18 @@ export class StellarService {
     const e = err as { response?: { status?: number }; status?: number };
     return e?.response?.status === 404 || e?.status === 404;
   }
+}
+
+/**
+ * Cut text to at most `maxBytes` of UTF-8 without splitting a character.
+ * Stellar text memos are limited to 28 bytes, and accents or emoji take more
+ * than one byte each, so slicing by characters can still overflow.
+ */
+function truncateUtf8(text: string, maxBytes: number): string {
+  let out = '';
+  for (const ch of text) {
+    if (Buffer.byteLength(out + ch, 'utf8') > maxBytes) break;
+    out += ch;
+  }
+  return out;
 }

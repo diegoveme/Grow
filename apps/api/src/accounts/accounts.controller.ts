@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { StellarService } from '../stellar/stellar.service';
+import { StellarAddressPipe } from '../common/stellar-address.pipe';
 import { PaymentBuildDto, SubmitClassicDto, TrustlineBuildDto } from './dto';
 
 /**
@@ -15,19 +16,20 @@ export class AccountsController {
 
   @Get(':address')
   @ApiOperation({ summary: 'Balances + funding + USDC trustline status' })
-  info(@Param('address') address: string) {
+  info(@Param('address', StellarAddressPipe) address: string) {
     return this.stellar.getAccountInfo(address);
   }
 
   @Get(':address/payments')
   @ApiOperation({ summary: 'Recent on-chain payments for an address' })
-  payments(@Param('address') address: string, @Query('limit') limit?: string) {
-    return this.stellar.getPayments(address, limit ? Number(limit) : 25);
+  payments(@Param('address', StellarAddressPipe) address: string, @Query('limit') limit?: string) {
+    const n = Number(limit);
+    return this.stellar.getPayments(address, Number.isInteger(n) && n > 0 ? n : 25);
   }
 
   @Post(':address/fund')
   @ApiOperation({ summary: 'Fund a testnet account via friendbot' })
-  async fund(@Param('address') address: string) {
+  async fund(@Param('address', StellarAddressPipe) address: string) {
     const funded = await this.stellar.fundTestnet(address);
     return { funded };
   }

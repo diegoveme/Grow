@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsString, Length, Max, Min, Matches } from 'class-validator';
-import { BPS_DENOMINATOR, STELLAR_ADDRESS_REGEX } from '@raiz/shared';
+import { IsInt, IsString, Max, Min, Matches } from 'class-validator';
+import { AMOUNT_REGEX, BPS_DENOMINATOR, STELLAR_ADDRESS_REGEX } from '@raiz/shared';
 
 export class SetSplitDto {
   @ApiProperty({ example: 'GAB...', description: 'Recipient Stellar address' })
@@ -25,7 +25,7 @@ export class ReceiveDto {
 
   @ApiProperty({ example: '200.00', description: 'USDC amount in display units' })
   @IsString()
-  @Length(1, 32)
+  @Matches(AMOUNT_REGEX, { message: 'amount must be a decimal with up to 7 decimals' })
   amount!: string;
 }
 
@@ -36,7 +36,7 @@ export class WithdrawDto {
 
   @ApiProperty({ example: '100.00' })
   @IsString()
-  @Length(1, 32)
+  @Matches(AMOUNT_REGEX, { message: 'amount must be a decimal with up to 7 decimals' })
   amount!: string;
 }
 
