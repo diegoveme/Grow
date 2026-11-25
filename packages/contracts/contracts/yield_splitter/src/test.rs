@@ -357,3 +357,12 @@ fn emptied_savings_are_removed_from_storage() {
     });
     assert_eq!(h.client.savings(&recipient), 0);
 }
+
+#[test]
+fn split_rounding_favors_savings() {
+    // 70% of 3 is 2.1: spendable is floored, savings keeps the remainder.
+    assert_eq!(split_amount(3, 7000), (2, 1));
+    assert_eq!(split_amount(1, 9999), (0, 1));
+    assert_eq!(split_amount(10, 10_000), (10, 0));
+    assert_eq!(split_amount(10, 0), (0, 10));
+}
