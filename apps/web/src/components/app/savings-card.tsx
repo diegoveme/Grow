@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { isValidAmount } from "@raiz/shared";
-import { Card, CardLabel } from "@/components/ui/card";
+import { TxStatus } from "@/components/app/tx-status";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Button } from "@/components/ui/button";
-import { Field, TextInput } from "@/components/ui/field";
-import { ExternalIcon } from "@/components/app/icons";
+import { Card, CardLabel } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Segmented } from "@/components/ui/segmented";
 import { api } from "@/lib/api";
-import { explorerTx } from "@/lib/config";
 import { formatUsd } from "@/lib/format";
 import { usePosition } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
@@ -41,7 +42,7 @@ export function SavingsCard({ address }: { address: string }) {
     );
     if (hash) {
       setAmount("");
-      refresh();
+      void refresh();
     }
   }
 
@@ -59,38 +60,26 @@ export function SavingsCard({ address }: { address: string }) {
 
       {position && (
         <>
-          <div className="mt-5 grid grid-cols-2 gap-2">
-            {(["add", "withdraw"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => {
-                  setMode(m);
-                  tx.reset();
-                }}
-                disabled={m === "withdraw" && !hasSavings}
-                className={`rounded-[2px] border px-4 py-2 text-sm font-medium transition-colors disabled:opacity-30 ${
-                  mode === m
-                    ? "border-oro bg-oro/10 text-oro"
-                    : "border-luz/10 text-luz-tenue/60 hover:border-luz/25"
-                }`}
-              >
-                {m === "add" ? "Set aside" : "Withdraw"}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            className="mt-5"
+            accent="oro"
+            value={mode}
+            onChange={(m) => {
+              setMode(m);
+              tx.reset();
+            }}
+            options={[
+              { value: "add", label: "Set aside" },
+              { value: "withdraw", label: "Withdraw", disabled: !hasSavings },
+            ]}
+          />
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1">
               <Field
                 label={mode === "add" ? "Move from your wallet (USDC)" : "Withdraw to your wallet (USDC)"}
               >
-                <TextInput
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-                  placeholder="0.00"
-                  inputMode="decimal"
-                />
+                <AmountInput value={amount} onChange={setAmount} />
               </Field>
             </div>
             {mode === "withdraw" && (
@@ -105,18 +94,7 @@ export function SavingsCard({ address }: { address: string }) {
         </>
       )}
 
-      {tx.error && <p className="mt-3 text-xs text-oro">{tx.error}</p>}
-      {tx.hash && (
-        <a
-          href={explorerTx(tx.hash)}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-3 flex items-center gap-1.5 text-xs text-brote hover:underline"
-        >
-          {mode === "add" ? "Saved" : "Withdrawn"} · view transaction{" "}
-          <ExternalIcon width={13} height={13} />
-        </a>
-      )}
+      <TxStatus error={tx.error} hash={tx.hash} success={mode === "add" ? "Saved" : "Withdrawn"} />
     </Card>
   );
 }

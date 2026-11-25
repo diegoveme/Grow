@@ -8,11 +8,12 @@ import { Card, CardLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CopyIcon, CheckIcon } from "@/components/app/icons";
 import { ExplorerLink } from "@/components/app/explorer-link";
+import { TxStatus } from "@/components/app/tx-status";
 import { api } from "@/lib/api";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
 import { useAccount, useCopy } from "@/lib/hooks";
-import { config, explorerAccount, explorerTx } from "@/lib/config";
+import { config, explorerAccount } from "@/lib/config";
 
 export default function ReceivePage() {
   const { address } = useWallet();
@@ -98,13 +99,7 @@ export default function ReceivePage() {
             {!info?.funded && (
               <p className="mt-3 text-xs text-oro">Fund your account with XLM first.</p>
             )}
-            {trustTx.error && <p className="mt-3 text-xs text-oro">{trustTx.error}</p>}
-            {trustTx.hash && (
-              <p className="mt-3 text-xs text-brote">
-                USDC enabled ✓{" "}
-                <ExplorerLink href={explorerTx(trustTx.hash)}>view transaction</ExplorerLink>
-              </p>
-            )}
+            <TxStatus error={trustTx.error} hash={trustTx.hash} success="USDC enabled ✓" />
           </>
         )}
       </Card>

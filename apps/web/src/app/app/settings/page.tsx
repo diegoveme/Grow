@@ -7,11 +7,12 @@ import { Card, CardLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConnectButton } from "@/components/connect-button";
 import { ExplorerLink } from "@/components/app/explorer-link";
+import { TxStatus } from "@/components/app/tx-status";
 import { api } from "@/lib/api";
 import { useSplitterConfig } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
-import { config, explorerAccount, explorerContract, explorerTx } from "@/lib/config";
+import { config, explorerAccount, explorerContract } from "@/lib/config";
 import { shortAddress } from "@/lib/format";
 import { DEFAULT_SPLIT } from "@raiz/shared";
 
@@ -82,13 +83,7 @@ export default function SettingsPage() {
         <Button onClick={save} disabled={tx.loading} className="mt-6 w-full sm:w-auto">
           {tx.loading ? "Saving…" : "Save split on-chain"}
         </Button>
-        {tx.error && <p className="mt-3 text-xs text-oro">{tx.error}</p>}
-        {saved && tx.hash && (
-          <p className="mt-3 text-xs text-brote">
-            Split saved on-chain ✓{" "}
-            <ExplorerLink href={explorerTx(tx.hash)}>view transaction</ExplorerLink>
-          </p>
-        )}
+        <TxStatus error={tx.error} hash={saved ? tx.hash : null} success="Split saved on-chain ✓" />
       </Card>
 
       {/* Connection */}

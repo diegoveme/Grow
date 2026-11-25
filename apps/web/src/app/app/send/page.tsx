@@ -1,21 +1,40 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { isStellarAddress, isValidAmount } from "@raiz/shared";
 import { PageHeader } from "@/components/app/page-header";
 import { SplitBar } from "@/components/app/split-bar";
+import { TxStatus } from "@/components/app/tx-status";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { AmountInput } from "@/components/ui/amount-input";
 import { Field, TextInput } from "@/components/ui/field";
-import { ExternalIcon } from "@/components/app/icons";
-import { api, type AccountInfo, type SplitPreview } from "@/lib/api";
+import { Segmented } from "@/components/ui/segmented";
+import { api, type AccountInfo } from "@/lib/api";
 import { ASSETS, SENDABLE_ASSETS, type AssetCode } from "@/lib/assets";
+import { formatAmount, formatUsd } from "@/lib/format";
+import {
+  useAccount,
+  useRecipient,
+  useRecipientSplit,
+  useSplitPreview,
+  useSplitterConfig,
+} from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
-import { useAccount, useSplitterConfig } from "@/lib/hooks";
-import { explorerTx } from "@/lib/config";
-import { formatAmount, formatUsd } from "@/lib/format";
-import { isStellarAddress, isValidAmount } from "@raiz/shared";
+
+/** Why the recipient can't get this asset yet, or a heads-up; null if fine. */
+function recipientNotice(asset: AssetCode, recipient: AccountInfo | null): string | null {
+  if (!recipient) return null;
+  if (asset === "USDC" && !recipient.exists)
+    return "This account isn't activated yet. Send it some XLM first so it can hold USDC.";
+  if (asset === "USDC" && !recipient.usdcTrustline)
+    return "This recipient hasn't added USDC yet, so they can't receive it.";
+  if (asset === "XLM" && !recipient.exists)
+    return "New account. This payment will activate it on the network.";
+  return null;
+}
 
 export default function SendPage() {
   const { address } = useWallet();
@@ -27,78 +46,20 @@ export default function SendPage() {
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
-  const [preview, setPreview] = useState<SplitPreview | null>(null);
-  const [recipient, setRecipient] = useState<AccountInfo | null>(null);
-  const [recipientBps, setRecipientBps] = useState<number | null>(null);
 
   const isUsdc = asset === "USDC";
   const validAddress = isStellarAddress(to);
-  const isGold = ASSETS[asset].accent === "oro";
   const validAmount = isValidAmount(amount) && Number(amount) > 0;
   const isSelf = validAddress && to === address;
 
-  const available = isUsdc ? info?.usdc ?? "0" : info?.xlm ?? "0";
-  const overBalance = validAmount && Number(amount) > Number(available);
-
   // The recipient's own split decides how a USDC remittance takes root.
-  useEffect(() => {
-    if (!isUsdc || !validAddress) {
-      setRecipientBps(null);
-      return;
-    }
-    let active = true;
-    api
-      .ratio(to)
-      .then((r) => active && setRecipientBps(r.spendableBps))
-      .catch(() => active && setRecipientBps(null));
-    return () => {
-      active = false;
-    };
-  }, [to, validAddress, isUsdc]);
+  const recipient = useRecipient(to, validAddress);
+  const recipientBps = useRecipientSplit(to, isUsdc && validAddress);
+  const preview = useSplitPreview(amount, recipientBps, isUsdc && validAmount);
 
-  // Split preview (USDC only, that's what takes root).
-  useEffect(() => {
-    if (!isUsdc || !validAmount) {
-      setPreview(null);
-      return;
-    }
-    let active = true;
-    api
-      .previewSplit(amount, recipientBps ?? undefined)
-      .then((p) => active && setPreview(p))
-      .catch(() => active && setPreview(null));
-    return () => {
-      active = false;
-    };
-  }, [amount, validAmount, isUsdc, recipientBps]);
-
-  // Look up the recipient so we can warn before they fail to receive.
-  useEffect(() => {
-    if (!validAddress) {
-      setRecipient(null);
-      return;
-    }
-    let active = true;
-    api
-      .account(to)
-      .then((r) => active && setRecipient(r))
-      .catch(() => active && setRecipient(null));
-    return () => {
-      active = false;
-    };
-  }, [to, validAddress]);
-
-  const recipientWarning = (() => {
-    if (!validAddress || !recipient) return null;
-    if (isUsdc && !recipient.exists)
-      return "This account isn't activated yet. Send it some XLM first so it can hold USDC.";
-    if (isUsdc && !recipient.usdcTrustline)
-      return "This recipient hasn't added USDC yet, so they can't receive it.";
-    if (!isUsdc && !recipient.exists)
-      return "New account. This payment will activate it on the network.";
-    return null;
-  })();
-
+  const available = isUsdc ? (info?.usdc ?? "0") : (info?.xlm ?? "0");
+  const overBalance = validAmount && Number(amount) > Number(available);
+  const notice = validAddress ? recipientNotice(asset, recipient) : null;
   const paused = isUsdc && splitter?.paused === true;
   const blocking =
     paused || (isUsdc && recipient ? !recipient.exists || !recipient.usdcTrustline : false);
@@ -108,12 +69,11 @@ export default function SendPage() {
     const hash = isUsdc
       ? await tx.run(() => api.buildReceive(address, to, amount), api.submitSoroban)
       : await tx.run(() => api.buildPayment({ from: address, to, asset, amount, memo }));
-    if (hash) {
-      if (isUsdc) await api.recordRemittance(hash).catch(() => undefined);
-      setAmount("");
-      setMemo("");
-      refresh();
-    }
+    if (!hash) return;
+    if (isUsdc) await api.recordRemittance(hash).catch(() => undefined);
+    setAmount("");
+    setMemo("");
+    void refresh();
   }
 
   if (!address) return null;
@@ -127,26 +87,16 @@ export default function SendPage() {
       />
 
       <Card>
-        {/* Asset toggle */}
         <Field label="Asset">
-          <div className="grid grid-cols-2 gap-2">
-            {SENDABLE_ASSETS.map((a) => (
-              <button
-                key={a}
-                type="button"
-                onClick={() => setAsset(a)}
-                className={`rounded-[2px] border px-4 py-2.5 text-sm font-medium transition-colors ${
-                  asset === a
-                    ? ASSETS[a].accent === "oro"
-                      ? "border-oro bg-oro/10 text-oro"
-                      : "border-agua bg-agua/10 text-agua"
-                    : "border-luz/10 text-luz-tenue/60 hover:border-luz/25"
-                }`}
-              >
-                {ASSETS[a].label}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            value={asset}
+            onChange={setAsset}
+            options={SENDABLE_ASSETS.map((a) => ({
+              value: a,
+              label: ASSETS[a].label,
+              accent: ASSETS[a].accent,
+            }))}
+          />
         </Field>
 
         <div className="mt-4">
@@ -162,16 +112,8 @@ export default function SendPage() {
         </div>
 
         <div className="mt-4">
-          <Field
-            label={`Amount (${asset})`}
-            hint={`Available: ${formatAmount(available)} ${asset}`}
-          >
-            <TextInput
-              value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
-              placeholder="0.00"
-              inputMode="decimal"
-            />
+          <Field label={`Amount (${asset})`} hint={`Available: ${formatAmount(available)} ${asset}`}>
+            <AmountInput value={amount} onChange={setAmount} />
           </Field>
         </div>
 
@@ -188,7 +130,6 @@ export default function SendPage() {
           </div>
         )}
 
-        {/* Split preview */}
         {isUsdc && preview && (
           <div className="mt-5 rounded-md border border-luz/5 bg-tierra/50 p-4">
             <div className="mb-3 text-xs uppercase tracking-wider opacity-50">
@@ -208,45 +149,28 @@ export default function SendPage() {
           </div>
         )}
 
-        {/* Warnings */}
         {overBalance && (
-          <p className="mt-4 text-xs text-oro">
-            Amount exceeds your available {asset} balance.
-          </p>
+          <p className="mt-4 text-xs text-oro">Amount exceeds your available {asset} balance.</p>
         )}
         {paused && (
           <p className="mt-3 text-xs text-oro">
             USDC remittances are paused for maintenance. Please try again later.
           </p>
         )}
-        {recipientWarning && (
-          <p className={`mt-3 text-xs ${blocking ? "text-oro" : "text-luz-tenue/60"}`}>
-            {recipientWarning}
-          </p>
+        {notice && (
+          <p className={`mt-3 text-xs ${blocking ? "text-oro" : "text-luz-tenue/60"}`}>{notice}</p>
         )}
 
         <Button
-          variant={isGold ? "gold" : "primary"}
+          variant={ASSETS[asset].accent === "oro" ? "gold" : "primary"}
           onClick={send}
-          disabled={
-            !validAddress || !validAmount || isSelf || overBalance || blocking || tx.loading
-          }
+          disabled={!validAddress || !validAmount || isSelf || overBalance || blocking || tx.loading}
           className="mt-6 w-full"
         >
           {tx.loading ? "Sending…" : `Send ${asset}`}
         </Button>
 
-        {tx.error && <p className="mt-3 text-center text-xs text-oro">{tx.error}</p>}
-        {tx.hash && (
-          <a
-            href={explorerTx(tx.hash)}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-brote hover:underline"
-          >
-            Sent successfully · view transaction <ExternalIcon width={13} height={13} />
-          </a>
-        )}
+        <TxStatus error={tx.error} hash={tx.hash} success="Sent successfully" center />
       </Card>
 
       <p className="mt-4 text-center text-xs opacity-40">
