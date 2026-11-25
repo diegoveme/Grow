@@ -22,6 +22,7 @@ wallet, outside the contract.
 | `set_split(user, spendable_bps)` | user | Choose the spendable share in basis points (0 to 10000) |
 | `get_split(user) -> u32` | | Current ratio (defaults to 7000 = 70%) |
 | `receive(from, to, amount) -> (spendable, savings)` | sender | Pay spendable to `to`, hold savings for `to` |
+| `deposit_savings(user, amount) -> total` | user | Set aside own USDC into savings (cap and pause apply) |
 | `withdraw_savings(to, amount) -> remaining` | recipient | Withdraw savings back to the wallet |
 | `set_user_cap(user_cap)` | admin | Change the per-recipient savings cap |
 | `set_paused(paused)` | admin | Pause or resume `receive`. Withdrawals are never paused |
@@ -30,7 +31,7 @@ wallet, outside the contract.
 
 **Storage:** `split` and `savings` per recipient (persistent, TTL extended on
 every write), plus `admin`, `token`, `user_cap` and `paused` (instance).
-**Events:** `SplitSet` · `FundsReceived` · `SavingsWithdrawn` · `UserCapSet` · `PausedSet`
+**Events:** `SplitSet` · `FundsReceived` · `SavingsDeposited` · `SavingsWithdrawn` · `UserCapSet` · `PausedSet`
 
 ### Errors
 
@@ -53,6 +54,7 @@ The API translates these into user-facing messages
 # from packages/contracts
 cargo test                 # unit tests (host)
 stellar contract build     # optimized wasm in target/wasm32v1-none/release
+bun run test:upgrade       # build + the upgrade tests, which swap in real wasm
 ```
 
 > The build targets `wasm32v1-none`, declared in `rust-toolchain.toml`. Install
