@@ -13,6 +13,8 @@ describe('API (e2e)', () => {
     for (const key of ['DATABASE_URL', 'DATABASE_HOST', 'DATABASE_PASSWORD']) {
       delete process.env[key];
     }
+    // Small enough for the last test to trip, large enough for the others.
+    process.env.RATE_LIMIT_PER_MINUTE = '6';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -48,5 +50,17 @@ describe('API (e2e)', () => {
       .send({ amount: '200' })
       .expect(201);
     expect(res.body).toMatchObject({ spendable: '140.0000000', vault: '60.0000000' });
+  });
+
+  // Keep last: it uses up this client's POST budget.
+  it('rate-limits POSTs per client but not GETs', async () => {
+    const server = app.getHttpServer();
+    const codes: number[] = [];
+    for (let i = 0; i < 8; i++) {
+      const res = await request(server).post('/api/remittances/preview').send({ amount: '1' });
+      codes.push(res.status);
+    }
+    expect(codes).toContain(429);
+    await request(server).get('/api/health').expect(200);
   });
 });
