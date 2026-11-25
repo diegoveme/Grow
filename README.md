@@ -56,6 +56,11 @@ The split ratio is chosen by each recipient and can change anytime.
   straight to the recipient and keeps only their savings, emitting typed events.
 - 🌾 **Savings that can grow**: withdraw savings any time, and deposit USDC into
   a DeFindex vault backed by a Blend lending pool.
+- 👨‍👩‍👧 **Several people, one signature**: pay up to 10 family members at once,
+  each split by their own choice.
+- 🔁 **Recurring remittances**: approve once, send every week or month; cancel anytime.
+- 🏷️ **Earmarked payments**: set money aside for school fees or a clinic; the
+  family pays it straight to them, or it comes back if unused.
 - 🛡️ **Beta guardrails**: per-recipient savings cap, deposit pause switch
   (withdrawals always open) and admin upgrade for fixes.
 - 👛 **Any Stellar wallet**: Freighter, xBull, Albedo, Lobstr, Hana… via the
@@ -117,6 +122,9 @@ bun install
 # 2. Configure
 cp .env.example apps/api/.env        # fill in your values
 #   apps/web/.env.local → NEXT_PUBLIC_API_URL, NEXT_PUBLIC_STELLAR_NETWORK
+
+#    .env.example carries working testnet values (contract, vault, Blend pool).
+#    In the app: Receive → fund XLM, add USDC, then "Get test USDC".
 
 # 3. Run everything (web :3000 + api :3001)
 bun run dev

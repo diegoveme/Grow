@@ -54,3 +54,25 @@ All of them were built by the Grow API and signed by the account named in the
 call. Tests for each function live in
 `packages/contracts/contracts/yield_splitter/src/test.rs`.
 
+## App deployment on testnet (use this one)
+
+The contract the app is configured for, with the same USDC the DeFindex
+vault uses, so savings can move into the vault.
+
+| Piece | Testnet id |
+| --- | --- |
+| yield_splitter | [CBEQUA2E…MBZCYA](https://stellar.expert/explorer/testnet/contract/CBEQUA2ET4XTZAMDB3ZOB6MUOA2B6ACZ6TV2GCDHFTETKBVG7TMBZCYA) (cap 100 USDC per recipient) |
+| USDC (SAC) | `CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU`, classic `USDC:GATALTGTWIOT6BUDBCZM3Q4OQ4BO2COLOAZ7IYSKPLC2PMSOPPGF5V56` |
+| DeFindex vault (USDC, Blend strategy) | `CBMVK2JK6NTOT2O4HNQAIQFJY232BHKGLIMXDVQVHIIZKDACXDFZDWHN` |
+| Blend pool behind the strategy | `CCEBVDYM32YNYCVNRXQKDFFPISJJCV557CDZEIRBEE4NCV4KHPQ44HGF` |
+
+`.env.example` already carries these values. Testnet USDC has no faucet we
+can call, but it trades against XLM on the DEX: in the app, Receive → Testnet
+faucet → "Get test USDC" swaps 100 XLM after the USDC trustline.
+
+End-to-end check on this deployment: a 10 USDC remittance split 7/3
+([7d34a7d3…](https://stellar.expert/explorer/testnet/tx/7d34a7d308df17c0eb31d827d7d14a84047b44661ec00d236a63f944bfb37abd)),
+then the 3 saved moved into the vault with `withdraw_savings`
+([f12c5a97…](https://stellar.expert/explorer/testnet/tx/f12c5a9788c11fdd25f7f8d8e55446402937788f0fb38a8f345dd566802e74ff))
+and a vault deposit
+([e374e7e6…](https://stellar.expert/explorer/testnet/tx/e374e7e6d0b384243e587f848bf9735f4deb210686d55d016f0e81da95b73fab)).
