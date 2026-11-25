@@ -25,6 +25,25 @@
   --radius-sharp: 1px;
 }
 
+/*
+ * Charcoal theme (Settings → Appearance): a green-tinted gray-black instead of
+ * pure black, so the leaf green and ochre stay vivid. Same token names, so
+ * every utility re-themes. Every text/background pair here meets WCAG AA.
+ */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-tierra: #1d2120; /* charcoal: base background */
+  --color-tierra-mid: #262b29; /* raised charcoal: cards / panels */
+  --color-semilla: #3a403d; /* borders / nodes */
+  --color-musgo: #2f5a31; /* deep green */
+  --color-brote: #6bc768; /* success */
+  --color-agua: #5cb860; /* primary green, brighter to pop on charcoal */
+  --color-agua-palo: #79c97c; /* hover */
+  --color-luz: #eceae3; /* primary text */
+  --color-luz-tenue: #aeaca1; /* secondary text */
+  --color-oro: #d8ad52; /* ochre */
+}
+
 html {
   scroll-behavior: smooth;
 }

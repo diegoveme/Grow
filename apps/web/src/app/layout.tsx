@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { WalletProvider } from "@/lib/wallet";
+import { THEME_INIT_SCRIPT, ThemeProvider } from "@/lib/theme";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -28,9 +29,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${playfair.variable} ${inter.variable} h-full`}>
+    // data-theme is set by the init script before hydration, hence the warning opt-out.
+    <html
+      lang="en"
+      className={`${playfair.variable} ${inter.variable} h-full`}
+      suppressHydrationWarning
+    >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col">
-        <WalletProvider>{children}</WalletProvider>
+        <ThemeProvider>
+          <WalletProvider>{children}</WalletProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { ConnectButton } from "@/components/connect-button";
 import { ExplorerLink } from "@/components/app/explorer-link";
 import { TxStatus } from "@/components/app/tx-status";
+import { Segmented } from "@/components/ui/segmented";
+import { useTheme, type ThemePreference } from "@/lib/theme";
 import { api } from "@/lib/api";
 import { useSplitterConfig } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
@@ -86,6 +88,8 @@ export default function SettingsPage() {
         <TxStatus error={tx.error} hash={saved ? tx.hash : null} success="Split saved on-chain ✓" />
       </Card>
 
+      <Appearance />
+
       {/* Connection */}
       <Card className="mt-4">
         <CardLabel>Connection</CardLabel>
@@ -117,6 +121,33 @@ export default function SettingsPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+/** Light paper, or a charcoal gray-black that keeps the greens vivid. */
+function Appearance() {
+  const { preference, resolved, setPreference } = useTheme();
+  return (
+    <Card className="mt-4">
+      <CardLabel>Appearance</CardLabel>
+      <p className="mb-4 text-sm opacity-55">
+        Charcoal is a soft gray-black, easier on the eyes at night, with the greens kept bright.
+      </p>
+      <Segmented<ThemePreference>
+        value={preference}
+        onChange={setPreference}
+        options={[
+          { value: "light", label: "Light" },
+          { value: "dark", label: "Charcoal" },
+          { value: "system", label: "System" },
+        ]}
+      />
+      {preference === "system" && (
+        <p className="mt-3 text-xs opacity-50">
+          Following your device: {resolved === "dark" ? "charcoal" : "light"} right now.
+        </p>
+      )}
+    </Card>
   );
 }
 

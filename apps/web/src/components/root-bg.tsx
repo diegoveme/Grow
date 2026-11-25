@@ -17,8 +17,9 @@ interface Root {
   op: number;
 }
 
-const INK = "#1C1B16";
-const LEAF = "#3A7D3F";
+// Theme tokens, so the roots follow light and charcoal themes.
+const INK = "var(--color-luz)";
+const LEAF = "var(--color-agua)";
 
 // viewBox is 1200 x 2400: y≈2400 is the footer, y≈180 is by the title.
 const ROOTS: Root[] = [
@@ -67,8 +68,8 @@ export function RootBg() {
     >
       <defs>
         <radialGradient id="grow-glow" cx="50%" cy="100%" r="60%">
-          <stop offset="0%" stopColor="#3A7D3F" stopOpacity="0.12" />
-          <stop offset="100%" stopColor="#3A7D3F" stopOpacity="0" />
+          <stop offset="0%" style={{ stopColor: LEAF }} stopOpacity="0.12" />
+          <stop offset="100%" style={{ stopColor: LEAF }} stopOpacity="0" />
         </radialGradient>
       </defs>
 
@@ -80,12 +81,13 @@ export function RootBg() {
           <path
             className="grow-root"
             d={r.d}
-            stroke={r.color === "leaf" ? LEAF : INK}
             strokeWidth={r.w}
             strokeLinecap="round"
             fill="none"
             pathLength={1}
-            style={{ animationDelay: `${r.delay}s` } as CSSProperties}
+            style={
+              { stroke: r.color === "leaf" ? LEAF : INK, animationDelay: `${r.delay}s` } as CSSProperties
+            }
           />
         </g>
       ))}
@@ -97,9 +99,8 @@ export function RootBg() {
           cx={b.cx}
           cy={b.cy}
           r={b.r}
-          fill={LEAF}
           opacity={0.4}
-          style={{ animationDelay: `${b.delay}s` }}
+          style={{ fill: LEAF, animationDelay: `${b.delay}s` }}
         />
       ))}
     </svg>
