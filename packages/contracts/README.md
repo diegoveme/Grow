@@ -24,6 +24,7 @@ wallet, outside the contract.
 | `receive(from, to, amount) -> (spendable, savings)` | sender | Pay spendable to `to`, hold savings for `to` |
 | `deposit_savings(user, amount) -> total` | user | Set aside own USDC into savings (cap and pause apply) |
 | `withdraw_savings(to, amount) -> remaining` | recipient | Withdraw savings back to the wallet |
+| `pay_from_savings(user, to, amount) -> remaining` | user | Pay a third party straight out of savings (never paused) |
 | `set_user_cap(user_cap)` | admin | Change the per-recipient savings cap |
 | `set_paused(paused)` | admin | Pause or resume `receive`. Withdrawals are never paused |
 | `upgrade(new_wasm_hash)` | admin | Replace the code, keeping id and storage |
@@ -31,7 +32,7 @@ wallet, outside the contract.
 
 **Storage:** `split` and `savings` per recipient (persistent, TTL extended on
 every write), plus `admin`, `token`, `user_cap` and `paused` (instance).
-**Events:** `SplitSet` · `FundsReceived` · `SavingsDeposited` · `SavingsWithdrawn` · `UserCapSet` · `PausedSet`
+**Events:** `SplitSet` · `FundsReceived` · `SavingsDeposited` · `SavingsWithdrawn` · `SavingsSpent` · `UserCapSet` · `PausedSet`
 
 ### Errors
 

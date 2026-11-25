@@ -156,11 +156,12 @@ See [docs/testnet.md](docs/testnet.md) for testnet details,
 | `receive(from, to, amount)` | Pay the spendable share to `to`, hold the savings for `to` |
 | `deposit_savings(user, amount)` | Recipient sets aside their own USDC into savings |
 | `withdraw_savings(to, amount)` | Recipient withdraws savings to their wallet |
+| `pay_from_savings(user, to, amount)` | Recipient pays a school, clinic or landlord straight from savings |
 | `set_user_cap` · `set_paused` · `upgrade` | Admin guardrails (withdrawals are never paused) |
 | `position(user)` · `config()` | Read savings + ratio, and the contract settings |
 
-**Events:** `SplitSet` · `FundsReceived` · `SavingsDeposited` · `SavingsWithdrawn` · `UserCapSet` · `PausedSet`
-&nbsp;·&nbsp; **Tests:** `cd packages/contracts && cargo test` (32 passing, plus 2 upgrade tests via `bun run test:upgrade`)
+**Events:** `SplitSet` · `FundsReceived` · `SavingsDeposited` · `SavingsWithdrawn` · `SavingsSpent` · `UserCapSet` · `PausedSet`
+&nbsp;·&nbsp; **Tests:** `cd packages/contracts && cargo test` (37 passing, plus 2 upgrade tests via `bun run test:upgrade`)
 
 ---
 

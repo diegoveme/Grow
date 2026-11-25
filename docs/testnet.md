@@ -40,6 +40,8 @@ so it is not the app's official deployment.
 | `set_split` | [cd7c0c3f…](https://stellar.expert/explorer/testnet/tx/cd7c0c3f76995c945983979d99e4b8c6bad14d786a8eb6e1a4270d769b271ed7) | Recipient chose 100% spendable |
 | `upgrade` | [7cccc2ce…](https://stellar.expert/explorer/testnet/tx/7cccc2ced82f9db97b8a0f5c49b02cb69d34343f0c9cb84037ff7c10a7021669) | Admin swapped in the code with `deposit_savings` |
 | `deposit_savings` | [60fe348c…](https://stellar.expert/explorer/testnet/tx/60fe348cf9f8b8ce8a4480dd940f008c5809f9c7d4b68740d7aa92ad7ed3aeba) | Recipient set aside 10 of their own |
+| `upgrade` | [cf0f00e7…](https://stellar.expert/explorer/testnet/tx/cf0f00e709db5444dbe97b520df4eb5c696585b63f0cfae2ab09ade26b484cc8) | Admin swapped in the code with `pay_from_savings` |
+| `pay_from_savings` | [e49c3d40…](https://stellar.expert/explorer/testnet/tx/e49c3d40b3c23eec0a02029839b0fd5722f83b1ccacc67c52cef5a6dbe372243) | Recipient paid 5 from savings straight to another account |
 
 All of them were built by the Grow API and signed by the account named in the
 call. Tests for each function live in
