@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BPS_DENOMINATOR } from '@raiz/shared';
 import { SplitsService } from './splits.service';
-import { ReceiveDto, SetSplitDto, SubmitDto, WithdrawDto } from './dto';
+import { DepositSavingsDto, ReceiveDto, SetSplitDto, SubmitDto, WithdrawDto } from './dto';
 import { StellarAddressPipe } from '../common/stellar-address.pipe';
 
 @ApiTags('splits')
@@ -40,6 +40,12 @@ export class SplitsController {
   @ApiOperation({ summary: 'Build an unsigned receive (send a split remittance) transaction' })
   async buildReceive(@Body() dto: ReceiveDto) {
     return { xdr: await this.splits.buildReceive(dto.from, dto.to, dto.amount) };
+  }
+
+  @Post('deposit/build')
+  @ApiOperation({ summary: 'Build an unsigned deposit_savings (top up own savings) transaction' })
+  async buildDeposit(@Body() dto: DepositSavingsDto) {
+    return { xdr: await this.splits.buildDepositSavings(dto.user, dto.amount) };
   }
 
   @Post('withdraw/build')

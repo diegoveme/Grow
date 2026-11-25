@@ -40,6 +40,17 @@ export class WithdrawDto {
   amount!: string;
 }
 
+export class DepositSavingsDto {
+  @ApiProperty({ example: 'GRECIPIENT...', description: 'Recipient adding to their own savings' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  user!: string;
+
+  @ApiProperty({ example: '25.00' })
+  @IsString()
+  @Matches(AMOUNT_REGEX, { message: 'amount must be a decimal with up to 7 decimals' })
+  amount!: string;
+}
+
 export class SubmitDto {
   @ApiProperty({ description: 'Signed transaction XDR (base64)' })
   @IsString()

@@ -117,6 +117,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ from, to, amount }),
     }),
+  buildDepositSavings: (user: string, amount: string) =>
+    request<{ xdr: string }>("/splits/deposit/build", {
+      method: "POST",
+      body: JSON.stringify({ user, amount }),
+    }),
   buildWithdrawSavings: (to: string, amount: string) =>
     request<{ xdr: string }>("/splits/withdraw/build", {
       method: "POST",
