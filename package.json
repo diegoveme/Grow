@@ -15,7 +15,7 @@
   "scripts": {
     "web": "bun --filter @raiz/web dev",
     "api": "bun --filter @raiz/api start:dev",
-    "dev": "bun --filter '@raiz/*' dev",
+    "dev": "bun --filter @raiz/shared build && bun --filter @raiz/api --filter @raiz/web dev",
     "build": "bun --filter '*' build",
     "lint": "bun --filter '*' lint",
     "typecheck": "bun --filter '*' typecheck",
