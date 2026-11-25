@@ -13,6 +13,9 @@
 //! recipient. Routing savings into a vault (DeFindex, Blend) is done from the
 //! recipient's own wallet, outside this contract.
 //!
+//! Recipients can also top up savings from their own wallet
+//! (`deposit_savings`) and withdraw them at any time (`withdraw_savings`).
+//!
 //! Beta guardrails: savings per recipient are capped (`user_cap`), and the
 //! admin can pause new deposits. Withdrawals always stay open. The admin can
 //! also upgrade the contract code to ship fixes without migrating funds.
@@ -29,7 +32,7 @@ pub use errors::Error;
 pub use storage::{DataKey, USER_TTL_EXTEND_TO, USER_TTL_THRESHOLD};
 pub use types::{Config, Position};
 
-use events::{FundsReceived, PausedSet, SavingsWithdrawn, SplitSet, UserCapSet};
+use events::{FundsReceived, PausedSet, SavingsDeposited, SavingsWithdrawn, SplitSet, UserCapSet};
 use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, BytesN, Env};
 
 /// 100% expressed in basis points.
@@ -139,6 +142,36 @@ impl YieldSplitter {
         .publish(&env);
 
         (spendable, savings)
+    }
+
+    /// Move `amount` of the caller's own USDC from their wallet into their
+    /// savings, on top of what remittances already saved. Respects the
+    /// per-recipient cap and the pause switch. Returns the new savings total.
+    pub fn deposit_savings(env: Env, user: Address, amount: i128) -> i128 {
+        user.require_auth();
+        if storage::is_paused(&env) {
+            panic_with_error!(&env, Error::Paused);
+        }
+        if amount <= 0 {
+            panic_with_error!(&env, Error::InvalidAmount);
+        }
+        if storage::savings(&env, &user) + amount > storage::user_cap(&env) {
+            panic_with_error!(&env, Error::CapExceeded);
+        }
+        token::Client::new(&env, &storage::token(&env)).transfer(
+            &user,
+            &env.current_contract_address(),
+            &amount,
+        );
+        let total = storage::add_savings(&env, &user, amount);
+        storage::bump_instance(&env);
+        SavingsDeposited {
+            user,
+            amount,
+            total,
+        }
+        .publish(&env);
+        total
     }
 
     /// Withdraw `amount` of the caller's savings back to their wallet.

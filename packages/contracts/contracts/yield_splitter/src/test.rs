@@ -366,3 +366,72 @@ fn split_rounding_favors_savings() {
     assert_eq!(split_amount(10, 10_000), (10, 0));
     assert_eq!(split_amount(10, 0), (0, 10));
 }
+
+// ── deposit_savings ─────────────────────────────────────────────────────────
+
+#[test]
+fn deposit_savings_moves_own_funds_into_savings() {
+    let h = setup();
+    let user = Address::generate(&h.env);
+    h.token_admin.mint(&user, &500);
+
+    let total = h.client.deposit_savings(&user, &200);
+
+    assert_eq!(total, 200);
+    assert_eq!(h.client.savings(&user), 200);
+    assert_eq!(h.token.balance(&user), 300);
+    assert_eq!(h.token.balance(&h.client.address), 200);
+}
+
+#[test]
+fn deposit_savings_adds_to_remittance_savings_and_can_be_withdrawn() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    h.client.receive(&sender, &recipient, &200); // saves 60
+    h.token_admin.mint(&recipient, &40);
+
+    assert_eq!(h.client.deposit_savings(&recipient, &40), 100);
+
+    h.client.withdraw_savings(&recipient, &100);
+    assert_eq!(h.client.savings(&recipient), 0);
+    assert_eq!(h.token.balance(&recipient), 240);
+}
+
+#[test]
+fn deposit_savings_requires_the_users_signature() {
+    let h = setup();
+    let user = Address::generate(&h.env);
+    h.token_admin.mint(&user, &50);
+    h.client.deposit_savings(&user, &50);
+
+    let auths = h.env.auths();
+    assert_eq!(auths.len(), 1);
+    assert_eq!(auths[0].0, user);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn deposit_savings_respects_the_cap() {
+    let h = setup();
+    let user = Address::generate(&h.env);
+    h.token_admin.mint(&user, &5_000);
+    h.client.deposit_savings(&user, &(CAP + 1));
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6)")]
+fn deposit_savings_is_blocked_while_paused() {
+    let h = setup();
+    let user = Address::generate(&h.env);
+    h.token_admin.mint(&user, &50);
+    h.client.set_paused(&true);
+    h.client.deposit_savings(&user, &50);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #3)")]
+fn deposit_savings_rejects_zero() {
+    let h = setup();
+    let user = Address::generate(&h.env);
+    h.client.deposit_savings(&user, &0);
+}

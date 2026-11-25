@@ -24,6 +24,16 @@ pub struct FundsReceived {
     pub savings: i128,
 }
 
+/// A recipient moved their own funds into savings.
+#[contractevent]
+#[derive(Clone)]
+pub struct SavingsDeposited {
+    #[topic]
+    pub user: Address,
+    pub amount: i128,
+    pub total: i128,
+}
+
 /// A recipient withdrew part or all of their savings.
 #[contractevent]
 #[derive(Clone)]
