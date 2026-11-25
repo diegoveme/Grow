@@ -122,6 +122,21 @@ export class StatsService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  /**
+   * Ids of schedules or pledges `address` created or receives, newest first,
+   * from the indexed creation events. Callers check the live state on-chain.
+   */
+  async refsFor(type: 'schedule_created' | 'pledge_created', address: string): Promise<number[]> {
+    const contractId = this.contractId;
+    if (!contractId) return [];
+    await this.sync();
+    const events = await this.eventStore().all(contractId);
+    return events
+      .filter((e) => e.type === type && e.ref && (e.account === address || e.to === address))
+      .map((e) => Number(e.ref))
+      .reverse();
+  }
+
   /** The contract's USDC balance, read live from the token (exact, not derived). */
   private async savingsHeld(contractId: string): Promise<string | null> {
     try {

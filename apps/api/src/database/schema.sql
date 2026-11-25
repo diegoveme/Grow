@@ -36,6 +36,9 @@ create table if not exists contract_events (
   savings      text
 );
 create index if not exists contract_events_contract_idx on contract_events (contract_id, ledger);
+-- Schedule/pledge id and the other party (added with recurring and conditional remittances).
+alter table contract_events add column if not exists ref text;
+alter table contract_events add column if not exists counterparty text;
 create table if not exists sync_cursors (
   name       text primary key,
   cursor     text        not null,

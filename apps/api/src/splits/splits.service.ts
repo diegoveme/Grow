@@ -8,6 +8,7 @@ import {
   type SplitterConfig,
 } from '@raiz/shared';
 import { SorobanService } from '../stellar/soroban.service';
+import { StatsService } from '../stats/stats.service';
 import { addressArg, i128, struct, u32, u64, vec } from '../stellar/scval';
 import type { AppConfig } from '../config/configuration';
 
@@ -78,6 +79,7 @@ export class SplitsService {
   constructor(
     private readonly soroban: SorobanService,
     private readonly config: ConfigService<AppConfig, true>,
+    private readonly stats: StatsService,
   ) {}
 
   contractId(): string {
@@ -279,6 +281,20 @@ export class SplitsService {
       amount: fromStroops(BigInt(raw.amount), 7),
       expiresAt: new Date(Number(raw.expires_at) * 1000).toISOString(),
     };
+  }
+
+  /** Open schedules `address` sends or receives, live from the contract. */
+  async schedulesFor(address: string): Promise<ScheduleView[]> {
+    const ids = await this.stats.refsFor('schedule_created', address);
+    const views = await Promise.all(ids.map((id) => this.getSchedule(id).catch(() => null)));
+    return views.filter((v): v is ScheduleView => v !== null);
+  }
+
+  /** Open pledges `address` funded or may release, live from the contract. */
+  async pledgesFor(address: string): Promise<PledgeView[]> {
+    const ids = await this.stats.refsFor('pledge_created', address);
+    const views = await Promise.all(ids.map((id) => this.getPledge(id).catch(() => null)));
+    return views.filter((v): v is PledgeView => v !== null);
   }
 
   submit(signedXdr: string) {

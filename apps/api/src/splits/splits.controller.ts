@@ -6,6 +6,7 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BPS_DENOMINATOR } from '@raiz/shared';
@@ -35,6 +36,18 @@ export class SplitsController {
   @ApiOperation({ summary: 'Contract settings: admin, token, savings cap, paused' })
   config() {
     return this.splits.getConfig();
+  }
+
+  @Get('schedules')
+  @ApiOperation({ summary: 'Open recurring remittances an address sends or receives' })
+  schedules(@Query('address', StellarAddressPipe) address: string) {
+    return this.splits.schedulesFor(address);
+  }
+
+  @Get('pledges')
+  @ApiOperation({ summary: 'Open conditional remittances an address funded or may release' })
+  pledges(@Query('address', StellarAddressPipe) address: string) {
+    return this.splits.pledgesFor(address);
   }
 
   @Get(':address')

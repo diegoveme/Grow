@@ -6,6 +6,8 @@ export type SplitterEventType =
   | 'savings_deposited'
   | 'savings_withdrawn'
   | 'savings_spent'
+  | 'schedule_created'
+  | 'pledge_created'
   | 'split_set'
   | 'user_cap_set'
   | 'paused_set';
@@ -27,6 +29,10 @@ export interface SplitterEvent {
   amount: string | null;
   spendable: string | null;
   savings: string | null;
+  /** Id of the schedule or pledge the event created, if any. */
+  ref: string | null;
+  /** The other party: a schedule's recipient or a pledge's beneficiary. */
+  to: string | null;
 }
 
 /** The fields of an RPC event we read (rpc.Api.EventResponse). */
@@ -44,6 +50,8 @@ const KNOWN = new Set<SplitterEventType>([
   'savings_deposited',
   'savings_withdrawn',
   'savings_spent',
+  'schedule_created',
+  'pledge_created',
   'split_set',
   'user_cap_set',
   'paused_set',
@@ -68,6 +76,8 @@ export function decodeEvent(raw: RawEvent): SplitterEvent | null {
       amount: str(data.amount),
       spendable: str(data.spendable),
       savings: str(data.savings),
+      ref: str(data.id),
+      to: str(data.to ?? data.beneficiary),
     };
   } catch {
     return null;

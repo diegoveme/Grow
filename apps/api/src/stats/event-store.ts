@@ -41,6 +41,8 @@ interface EventRow {
   amount: string | null;
   spendable: string | null;
   savings: string | null;
+  ref: string | null;
+  counterparty: string | null;
 }
 
 /** Postgres store (tables created in DatabaseService's schema). */
@@ -59,10 +61,11 @@ export class PostgresEventStore implements EventStore {
         await tx`
           insert into contract_events
             (id, contract_id, ledger, tx_hash, closed_at, type, account, from_address,
-             amount, spendable, savings)
+             amount, spendable, savings, ref, counterparty)
           values
             (${e.id}, ${contractId}, ${e.ledger}, ${e.txHash}, ${e.closedAt}, ${e.type},
-             ${e.account}, ${e.from}, ${e.amount}, ${e.spendable}, ${e.savings})
+             ${e.account}, ${e.from}, ${e.amount}, ${e.spendable}, ${e.savings}, ${e.ref},
+             ${e.to})
           on conflict (id) do nothing`;
       }
       await tx`
@@ -85,6 +88,8 @@ export class PostgresEventStore implements EventStore {
       amount: r.amount,
       spendable: r.spendable,
       savings: r.savings,
+      ref: r.ref,
+      to: r.counterparty,
     }));
   }
 }
