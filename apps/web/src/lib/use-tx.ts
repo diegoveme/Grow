@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useWallet } from "./wallet";
 import { api } from "./api";
+import { config } from "./config";
 
 export interface TxState {
   loading: boolean;
@@ -31,7 +32,13 @@ export function useTx() {
       try {
         const { xdr } = await buildXdr();
         const signed = await signTransaction(xdr);
-        const { hash } = await submit(signed);
+        const { hash, status } = await submit(signed);
+        if (status !== "SUCCESS") {
+          // Still pending after the API's wait: don't claim success yet.
+          throw new Error(
+            `Submitted but not confirmed yet (${status}). Check it in Activity shortly. Tx ${hash}`,
+          );
+        }
         setState({ loading: false, error: null, hash });
         return hash;
       } catch (err) {
@@ -62,8 +69,10 @@ function friendly(message: string): string {
   if (lower.includes("op_underfunded") || lower.includes("underfunded")) {
     return "Not enough balance for this payment (remember XLM keeps a small reserve).";
   }
-  if (lower.includes("not funded")) {
-    return "Your account isn't funded yet. Use “Fund testnet XLM” first.";
+  if (lower.includes("not funded") || lower.includes("not activated")) {
+    return config.network === "PUBLIC"
+      ? "Your account isn't activated yet. Send it some XLM first."
+      : "Your account isn't funded yet. Use “Fund testnet XLM” first.";
   }
   return message.replace(/^API \d+:\s*/, "");
 }
