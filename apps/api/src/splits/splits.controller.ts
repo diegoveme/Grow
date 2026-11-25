@@ -1,24 +1,33 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { BPS_DENOMINATOR } from '@raiz/shared';
 import { SplitsService } from './splits.service';
 import { ReceiveDto, SetSplitDto, SubmitDto, WithdrawDto } from './dto';
+import { StellarAddressPipe } from '../common/stellar-address.pipe';
 
 @ApiTags('splits')
 @Controller('splits')
 export class SplitsController {
   constructor(private readonly splits: SplitsService) {}
 
+  // Declared before `:address` so "config" is not read as an address.
+  @Get('config')
+  @ApiOperation({ summary: 'Contract settings: admin, token, savings cap, paused' })
+  config() {
+    return this.splits.getConfig();
+  }
+
   @Get(':address')
-  @ApiOperation({ summary: 'On-chain position (balances + ratio) for an address' })
-  position(@Param('address') address: string) {
+  @ApiOperation({ summary: 'On-chain position (savings + ratio) for an address' })
+  position(@Param('address', StellarAddressPipe) address: string) {
     return this.splits.getPosition(address);
   }
 
   @Get(':address/ratio')
   @ApiOperation({ summary: 'Current spendable ratio (basis points)' })
-  async ratio(@Param('address') address: string) {
+  async ratio(@Param('address', StellarAddressPipe) address: string) {
     const spendableBps = await this.splits.getSplit(address);
-    return { spendableBps, vaultBps: 10000 - spendableBps };
+    return { spendableBps, vaultBps: BPS_DENOMINATOR - spendableBps };
   }
 
   @Post('ratio/build')
@@ -28,25 +37,19 @@ export class SplitsController {
   }
 
   @Post('receive/build')
-  @ApiOperation({ summary: 'Build an unsigned receive (split a remittance) transaction' })
+  @ApiOperation({ summary: 'Build an unsigned receive (send a split remittance) transaction' })
   async buildReceive(@Body() dto: ReceiveDto) {
     return { xdr: await this.splits.buildReceive(dto.from, dto.to, dto.amount) };
   }
 
-  @Post('deposit-vault/build')
-  @ApiOperation({ summary: 'Build an unsigned deposit_vault transaction' })
-  async buildDepositVault(@Body() dto: { to: string }) {
-    return { xdr: await this.splits.buildDepositVault(dto.to) };
-  }
-
   @Post('withdraw/build')
-  @ApiOperation({ summary: 'Build an unsigned withdraw transaction' })
+  @ApiOperation({ summary: 'Build an unsigned withdraw_savings transaction' })
   async buildWithdraw(@Body() dto: WithdrawDto) {
-    return { xdr: await this.splits.buildWithdraw(dto.to, dto.amount) };
+    return { xdr: await this.splits.buildWithdrawSavings(dto.to, dto.amount) };
   }
 
   @Post('submit')
-  @ApiOperation({ summary: 'Submit a signed transaction to the network' })
+  @ApiOperation({ summary: 'Submit a signed Soroban transaction to the network' })
   submit(@Body() dto: SubmitDto) {
     return this.splits.submit(dto.signedXdr);
   }

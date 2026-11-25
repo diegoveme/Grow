@@ -8,16 +8,27 @@ export interface SplitConfig {
   vaultBps: number;
 }
 
-/** The on-chain + derived state of a recipient account in Raíz. */
+/**
+ * A recipient's position in the `yield_splitter` contract. The spendable part
+ * of each remittance is paid straight to their wallet, so only savings and the
+ * chosen split live on-chain here.
+ */
 export interface AccountState {
   address: string;
-  /** Spendable USDC balance (display units, e.g. "140.00"). */
-  walletBalance: string;
-  /** Value currently held in the vault (display units). */
-  vaultBalance: string;
-  /** Yield accrued and claimable (display units). */
-  earnedYield: string;
+  /** USDC savings held by the contract for this recipient (display units). */
+  savings: string;
   split: SplitConfig;
+}
+
+/** Global `yield_splitter` settings (beta guardrails). */
+export interface SplitterConfig {
+  contractId: string;
+  admin: string;
+  token: string;
+  /** Max savings the contract holds per recipient (display units). */
+  userCap: string;
+  /** When true, new remittances are rejected; withdrawals still work. */
+  paused: boolean;
 }
 
 export type RemittanceStatus =
