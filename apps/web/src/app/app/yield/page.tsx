@@ -39,7 +39,7 @@ export default function YieldPage() {
       <PageHeader
         eyebrow="Yield"
         title="Make it grow"
-        subtitle="The part of every remittance you save takes root in a DeFindex vault, which supplies into a Blend lending pool and earns USDC yield."
+        subtitle="Put USDC to work in a DeFindex vault, which supplies into a Blend lending pool and earns USDC yield. Deposits come from your wallet and you can withdraw any time."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -80,16 +80,16 @@ export default function YieldPage() {
         <CardLabel>How yield works</CardLabel>
         <ol className="space-y-3 text-sm opacity-70">
           <li className="flex gap-3">
-            <span className="text-oro">1.</span> You receive USDC; your chosen share is routed
-            to the vault instead of sitting idle.
+            <span className="text-oro">1.</span> Remittances sent through Grow save your chosen
+            share for you. Withdraw those savings to your wallet from the Overview.
           </li>
           <li className="flex gap-3">
-            <span className="text-oro">2.</span> The DeFindex vault supplies that USDC into a
-            Blend lending pool as collateral.
+            <span className="text-oro">2.</span> Deposit USDC from your wallet here. The DeFindex
+            vault supplies it into a Blend lending pool.
           </li>
           <li className="flex gap-3">
-            <span className="text-oro">3.</span> Borrowers pay interest; your balance grows in
-            USDC. Withdraw any time, even cash out via a SEP-24 anchor.
+            <span className="text-oro">3.</span> Borrowers pay interest and your vault balance
+            grows in USDC. Withdraw back to your wallet any time.
           </li>
         </ol>
       </Card>

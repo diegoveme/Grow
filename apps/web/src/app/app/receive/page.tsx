@@ -102,9 +102,19 @@ export default function ReceivePage() {
         )}
       </Card>
 
-      {/* Cash in / out via a Stellar anchor (SEP-24) */}
+      {/* Cash in / out via a Stellar anchor (SEP-24). Only the testnet reference
+          anchor is wired today; mainnet cash-out is out of scope for the beta. */}
       <div className="mt-4">
-        <AnchorPanel />
+        {isTestnet ? (
+          <AnchorPanel />
+        ) : (
+          <Card>
+            <CardLabel>Cash in / out</CardLabel>
+            <p className="text-sm opacity-55">
+              Cash out to local currency through a Stellar anchor is coming soon.
+            </p>
+          </Card>
+        )}
       </div>
 
       {/* Testnet faucet */}

@@ -90,7 +90,7 @@ export function AnchorPanel() {
           setMessage(`Anchor status: ${st.replace(/_/g, " ")}`);
           if (st === "completed") {
             setStatus("done");
-            setMessage("Done — the anchor settled your transaction.");
+            setMessage("Done. The anchor settled your transaction.");
             popup?.close();
             return;
           }
