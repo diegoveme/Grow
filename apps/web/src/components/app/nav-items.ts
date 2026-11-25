@@ -18,6 +18,6 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/app/send", label: "Send", Icon: SendIcon },
   { href: "/app/receive", label: "Receive", Icon: ReceiveIcon },
   { href: "/app/activity", label: "Activity", Icon: ActivityIcon },
-  { href: "/app/yield", label: "Yield", Icon: YieldIcon },
+  { href: "/app/yield", label: "Vault", Icon: YieldIcon },
   { href: "/app/settings", label: "Settings", Icon: SettingsIcon },
 ];

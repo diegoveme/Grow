@@ -76,20 +76,20 @@ export default function OverviewPage() {
           </div>
           <p className="mb-5 text-sm opacity-55">
             Every USDC remittance sent to you through Grow is divided on-chain. Part lands in
-            your wallet, part is saved for you. Move savings into the vault to earn yield.
+            your wallet, part is saved for you. You can also move USDC into the vault.
           </p>
           <SplitBar spendableBps={spendableBps} />
         </Card>
 
-        {/* Yield teaser */}
+        {/* Vault teaser */}
         <Card className="flex flex-col justify-between">
-          <CardLabel>Yield</CardLabel>
+          <CardLabel>Vault</CardLabel>
           <div>
             <div className="font-display text-4xl font-bold text-oro">
               {apy ? formatApy(apy.apy) : <span className="opacity-40">·</span>}
             </div>
             <div className="mt-1 text-xs opacity-45">
-              {apy ? "Current APY · DeFindex to Blend" : "Configure a pool to go live"}
+              {apy ? "Variable rate · DeFindex to Blend" : "Configure a pool to go live"}
             </div>
           </div>
           <Link

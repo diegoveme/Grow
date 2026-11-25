@@ -6,7 +6,7 @@ import { CursorMolecules } from "@/components/cursor-molecules";
 const stats = [
   { num: "$860B", label: "Global remittances / yr" },
   { num: "<5s", label: "Settlement time" },
-  { num: "~6%", label: "APY on yield" },
+  { num: "70/30", label: "Default spendable / saved" },
   { num: "$0.001", label: "Fee per tx" },
 ];
 
@@ -26,14 +26,14 @@ const steps = [
   {
     icon: "🌱",
     title: "Grow splits it",
-    desc: "A Soroban smart contract (Rust) automatically divides the funds: the part you keep spendable, and the part you want to grow.",
+    desc: "A Soroban smart contract (Rust) divides the funds on-chain: one part lands in your family's wallet, the other is saved for them.",
     tag: "Soroban · Rust",
   },
   {
     icon: "🌾",
-    title: "The root earns yield",
-    desc: "The savings portion enters a DeFindex vault routing into Blend. It earns APY in USDC, and you can withdraw anytime, even as cash.",
-    tag: "DeFindex · Blend",
+    title: "Savings take root",
+    desc: "The contract holds the saved part for your family. They can add to it, withdraw it anytime, or move it into a DeFindex vault on Blend.",
+    tag: "Savings · DeFindex",
   },
 ];
 
@@ -60,8 +60,8 @@ export default function Home() {
             and <em className="italic text-agua">takes root.</em>
           </h1>
           <p className="mx-auto mt-6 max-w-md text-luz-tenue/75">
-            Send across borders. Your family receives it instantly, and a part grows on its
-            own, earning yield while they live.
+            Send across borders. Your family receives it instantly, and a part is set aside
+            for them, on-chain, every time.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Link
@@ -147,7 +147,7 @@ export default function Home() {
             <div className="w-px bg-luz/10" />
             <div>
               <div className="font-display text-3xl font-bold text-oro">$60</div>
-              <div className="mt-1 text-xs opacity-50">Growing ~ $3.60 / yr in yield</div>
+              <div className="mt-1 text-xs opacity-50">Saved for them · withdraw anytime</div>
             </div>
           </div>
           <p className="border-t border-luz/5 pt-4 text-sm opacity-40">

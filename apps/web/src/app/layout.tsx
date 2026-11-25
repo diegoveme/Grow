@@ -19,7 +19,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Grow · Your money arrives, and takes root",
   description:
-    "Remittances on Stellar that pay you back. Receive USDC instantly and let a part of it grow on its own, earning yield through DeFindex and Blend.",
+    "Remittances on Stellar with built-in savings. Your family receives USDC instantly, and a part is set aside for them on-chain.",
 };
 
 export default function RootLayout({

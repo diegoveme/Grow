@@ -2,7 +2,7 @@
 
 # 🌱 Grow
 
-### Remittances on Stellar that pay you back.
+### Remittances on Stellar with built-in savings.
 
 *Your money arrives in seconds, and a part of it takes root.*
 
@@ -21,9 +21,8 @@
 ## The problem
 
 People around the world send hundreds of billions of dollars in remittances every
-year. The money arrives, gets spent, and earns **nothing** in between. The families
-receiving it have no easy on-ramp to the yield the rest of the financial world takes
-for granted.
+year. The money arrives and gets spent, and the families receiving it rarely have
+a simple, safe way to set part of it aside.
 
 ## The solution
 
@@ -31,7 +30,7 @@ for granted.
 **Soroban smart contract** that splits it by the recipient's own ratio: the
 spendable share lands in the recipient's wallet instantly (cash-out ready through
 a SEP-24 anchor), and the rest is **saved for them** on-chain. Recipients can
-withdraw their savings any time, or put USDC to work in a yield vault
+withdraw their savings any time, or move USDC into a vault
 ([DeFindex](https://docs.defindex.io/) → [Blend](https://docs.blend.capital/))
 from the same dashboard.
 
@@ -44,7 +43,7 @@ from the same dashboard.
       spendable · cash-out (SEP-24)          withdraw_savings() any time
                                                           │
                                                           ▼  from the wallet
-                                             DeFindex vault → Blend pool (APY)
+                                             DeFindex vault → Blend pool
 ```
 
 The split ratio is chosen by each recipient and can change anytime.
@@ -56,7 +55,7 @@ The split ratio is chosen by each recipient and can change anytime.
 - 🔗 **On-chain split**: a Soroban (Rust) contract pays the spendable share
   straight to the recipient and keeps only their savings, emitting typed events.
 - 🌾 **Savings that can grow**: withdraw savings any time, and deposit USDC into
-  a DeFindex vault backed by a Blend lending pool to earn APY.
+  a DeFindex vault backed by a Blend lending pool.
 - 🛡️ **Beta guardrails**: per-recipient savings cap, deposit pause switch
   (withdrawals always open) and admin upgrade for fixes.
 - 👛 **Any Stellar wallet**: Freighter, xBull, Albedo, Lobstr, Hana… via the
@@ -77,7 +76,7 @@ The split ratio is chosen by each recipient and can change anytime.
 | **Frontend** | Next.js 16 (App Router) · React 19 · Tailwind CSS 4 |
 | **Backend** | NestJS 11 · Postgres (Supabase) via `postgres.js` |
 | **Stellar** | `@stellar/stellar-sdk`, Stellar Wallets Kit, SEP-10/24 |
-| **Yield** | `@blend-capital/blend-sdk`, `@defindex/sdk` |
+| **Vault** | `@blend-capital/blend-sdk`, `@defindex/sdk` |
 | **Tooling** | Bun workspaces · TypeScript · Prettier |
 
 ---
@@ -98,7 +97,7 @@ grow/
 | Package | Purpose |
 | --- | --- |
 | [`apps/web`](apps/web) | Landing page + the dApp (connect wallet, balances, split, send, savings, vault) |
-| [`apps/api`](apps/api) | SEP-10/24 anchor proxy, contract reads & tx building, yield, remittances |
+| [`apps/api`](apps/api) | SEP-10/24 anchor proxy, contract reads & tx building, vault, remittances, stats |
 | [`packages/contracts`](packages/contracts) | The `yield_splitter` Soroban contract + tests + deploy script |
 | [`packages/shared`](packages/shared) | Grow design tokens, shared types, validation and network constants |
 
@@ -176,7 +175,8 @@ Base URL `http://localhost:3001/api` · interactive docs at `/api/docs`.
 | `GET` | `/splits/config` · `/splits/:address` | Contract settings and a recipient's position |
 | `POST` | `/splits/{ratio,receive,withdraw}/build` | Build unsigned set-split / receive / withdraw txs |
 | `POST` | `/splits/submit` | Submit a signed transaction |
-| `GET` | `/vault/apy` | Live vault APY (DeFindex → Blend) |
+| `GET` | `/vault/apy` | Live vault rate (DeFindex → Blend) |
+| `GET` | `/stats` | Public on-chain usage: volume, remittances, savings held |
 | `POST` | `/vault/{deposit,withdraw}/build` | DeFindex deposit/withdraw by USDC amount |
 | `POST` | `/anchor/sep10/*` · `/anchor/sep24/*` | SEP-10 auth + SEP-24 deposit/withdraw |
 

@@ -33,16 +33,16 @@ export default function YieldPage() {
   return (
     <div className="mx-auto max-w-2xl animate-rise">
       <PageHeader
-        eyebrow="Yield"
-        title="Make it grow"
-        subtitle="Put USDC to work in a DeFindex vault, which supplies into a Blend lending pool and earns USDC yield. Deposits come from your wallet and you can withdraw any time."
+        eyebrow="Vault"
+        title="Savings vault"
+        subtitle="Move USDC into a DeFindex vault that supplies a Blend lending pool. Deposits come from your wallet and you can withdraw any time."
       />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>
           <Stat
             value={apy ? formatApy(apy.apy) : "·"}
-            label={apy ? `APY · ${apy.source}` : "APY · not configured"}
+            label={apy ? `Variable rate · ${apy.source}` : "Rate · not configured"}
             accent="oro"
           />
         </Card>
@@ -73,7 +73,7 @@ export default function YieldPage() {
       </Card>
 
       <Card className="mt-4">
-        <CardLabel>How yield works</CardLabel>
+        <CardLabel>How the vault works</CardLabel>
         <ol className="space-y-3 text-sm opacity-70">
           <li className="flex gap-3">
             <span className="text-oro">1.</span> Remittances sent through Grow save your chosen
@@ -84,15 +84,15 @@ export default function YieldPage() {
             vault supplies it into a Blend lending pool.
           </li>
           <li className="flex gap-3">
-            <span className="text-oro">3.</span> Borrowers pay interest and your vault balance
-            grows in USDC. Withdraw back to your wallet any time.
+            <span className="text-oro">3.</span> Borrowers pay interest to the pool at a variable
+            rate that is not guaranteed. Withdraw back to your wallet any time.
           </li>
         </ol>
       </Card>
 
       {!live && (
         <div className="mt-4 rounded-md border border-dashed border-oro/25 bg-oro/5 px-5 py-4 text-sm">
-          <div className="font-medium text-oro">Yield is in preview</div>
+          <div className="font-medium text-oro">The vault is in preview</div>
           <p className="mt-1 opacity-60">
             Live deposits/withdrawals go on once a DeFindex vault address + API key and a Blend
             testnet pool are configured. The split, balances, send and receive all work today.
