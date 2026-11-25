@@ -1,59 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { Card, CardLabel } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ExplorerLink } from "@/components/app/explorer-link";
-import { api } from "@/lib/api";
-import { config, explorerTx } from "@/lib/config";
+import { Button } from "@/components/ui/button";
+import { Card, CardLabel } from "@/components/ui/card";
+import { Segmented } from "@/components/ui/segmented";
+import { authenticate, startInteractive, waitForAnchor } from "@/lib/anchor";
+import { explorerTx } from "@/lib/config";
 import { useWallet } from "@/lib/wallet";
 
 type Status = "idle" | "authenticating" | "interactive" | "polling" | "done" | "error";
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Validate a SEP-10 challenge before the wallet signs it: never sign a server
- * transaction blindly. Asserts it is a real auth challenge: right network, the
- * anchor's signing key as source, sequence 0, and a `<home_domain> auth`
- * manage_data op whose source is this user. Throws if anything is off.
- */
-async function assertValidChallenge(xdr: string, networkPassphrase: string, account: string) {
-  if (networkPassphrase !== config.networkPassphrase) {
-    throw new Error("Anchor challenge is for the wrong network.");
-  }
-  const info = await api.anchorInfo();
-  const { TransactionBuilder } = await import("@stellar/stellar-sdk");
-  const tx = TransactionBuilder.fromXDR(xdr, networkPassphrase) as {
-    source: string;
-    sequence: string;
-    timeBounds?: unknown;
-    operations: { type: string; source?: string; name?: string }[];
-  };
-  if (info.signingKey && tx.source !== info.signingKey) {
-    throw new Error("Challenge is not from the anchor's signing key.");
-  }
-  if (tx.sequence !== "0") throw new Error("Challenge sequence must be 0.");
-  if (!tx.timeBounds) throw new Error("Challenge has no time bounds.");
-  const first = tx.operations[0];
-  if (
-    !first ||
-    first.type !== "manageData" ||
-    first.source !== account ||
-    first.name !== `${info.homeDomain} auth`
-  ) {
-    throw new Error("Not a valid SEP-10 auth challenge.");
-  }
-}
+/** Assets offered by the testnet reference anchor; XLM is "native" in SEP-24. */
+type AnchorAsset = "USDC" | "native" | "SRT";
+
+const humanize = (status: string) => status.replace(/_/g, " ");
 
 /**
  * SEP-10 (auth) + SEP-24 (interactive deposit/withdraw) against the testnet
  * reference anchor: cash in to fund, or cash out a remittance to fiat. The
- * wallet signs the SEP-10 challenge; the anchor's hosted form opens in a popup
- * and we poll the transaction to completion.
+ * protocol steps live in lib/anchor.ts; this component only drives the UI.
  */
 export function AnchorPanel() {
   const { address, signTransaction } = useWallet();
-  const [asset, setAsset] = useState("USDC");
+  const [asset, setAsset] = useState<AnchorAsset>("USDC");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
   /** On-chain hash of the anchor's settlement, once it reports one. */
@@ -62,55 +32,34 @@ export function AnchorPanel() {
 
   async function start(kind: "deposit" | "withdraw") {
     if (!address) return;
-    setStatus("authenticating");
     setSettledHash(null);
-    setMessage("Authenticating with the anchor (SEP-10)…");
     try {
-      // SEP-10: validate the challenge, sign it, exchange for a JWT.
-      const { transaction, networkPassphrase } = await api.anchorChallenge(address);
-      await assertValidChallenge(transaction, networkPassphrase, address);
-      const signed = await signTransaction(transaction);
-      const { token } = await api.anchorToken(signed);
+      setStatus("authenticating");
+      setMessage("Authenticating with the anchor (SEP-10)…");
+      const token = await authenticate(address, signTransaction);
 
-      // SEP-24: get the interactive URL and open the anchor's hosted form.
       setStatus("interactive");
       setMessage("Opening the anchor…");
-      const { url, id } = await api.anchorInteractive(kind, token, address, asset);
-      if (new URL(url).protocol !== "https:") {
-        throw new Error("Anchor returned a non-https URL.");
-      }
+      const { url, id } = await startInteractive(kind, token, address, asset);
       const popup = window.open(url, "anchor", "width=480,height=720");
       if (popup) popup.opener = null; // break the opener ref (anti-tabnabbing)
-      else setMessage("Allow popups to continue with the anchor.");
 
-      // Poll until the anchor transaction settles.
       setStatus("polling");
-      setMessage("Complete the form in the anchor window…");
-      for (let i = 0; i < 150; i++) {
-        await sleep(2500);
-        try {
-          const { transaction: tx } = await api.anchorTransaction(token, id);
-          const st = String(tx.status ?? "");
-          setMessage(`Anchor status: ${st.replace(/_/g, " ")}`);
-          if (st === "completed") {
-            const hash = tx.stellar_transaction_id;
-            if (typeof hash === "string" && /^[0-9a-f]{64}$/i.test(hash)) setSettledHash(hash);
-            setStatus("done");
-            setMessage("Done. The anchor settled your transaction.");
-            popup?.close();
-            return;
-          }
-          if (["error", "refunded", "expired", "no_market", "too_small", "too_large"].includes(st)) {
-            setStatus("error");
-            setMessage(`Anchor returned: ${st.replace(/_/g, " ")}`);
-            return;
-          }
-        } catch {
-          /* keep polling */
-        }
+      setMessage(popup ? "Complete the form in the anchor window…" : "Allow popups to continue with the anchor.");
+      const outcome = await waitForAnchor(token, id, (s) => setMessage(`Anchor status: ${humanize(s)}`));
+
+      if (outcome.kind === "completed") {
+        setStatus("done");
+        setMessage("Done. The anchor settled your transaction.");
+        setSettledHash(outcome.hash);
+        popup?.close();
+      } else if (outcome.kind === "failed") {
+        setStatus("error");
+        setMessage(`Anchor returned: ${humanize(outcome.status)}`);
+      } else {
+        setStatus("idle");
+        setMessage("Timed out waiting for the anchor. Check Activity later.");
       }
-      setStatus("idle");
-      setMessage("Timed out waiting for the anchor. Check Activity later.");
     } catch (e) {
       setStatus("error");
       const m = e instanceof Error ? e.message : String(e);
@@ -126,22 +75,16 @@ export function AnchorPanel() {
         auth + SEP-24 interactive). Uses the testnet reference anchor.
       </p>
 
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        {["USDC", "XLM", "SRT"].map((a) => (
-          <button
-            key={a}
-            type="button"
-            onClick={() => setAsset(a === "XLM" ? "native" : a)}
-            className={`rounded-[2px] border px-3 py-2 text-sm font-medium transition-colors ${
-              (asset === "native" ? "XLM" : asset) === a
-                ? "border-agua bg-agua/10 text-agua"
-                : "border-luz/10 text-luz-tenue/60 hover:border-luz/25"
-            }`}
-          >
-            {a}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        className="mb-4"
+        value={asset}
+        onChange={setAsset}
+        options={[
+          { value: "USDC", label: "USDC" },
+          { value: "native", label: "XLM" },
+          { value: "SRT", label: "SRT" },
+        ]}
+      />
 
       <div className="grid grid-cols-2 gap-2">
         <Button variant="primary" onClick={() => start("deposit")} disabled={busy}>
