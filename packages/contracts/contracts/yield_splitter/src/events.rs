@@ -55,6 +55,36 @@ pub struct SavingsSpent {
     pub remaining: i128,
 }
 
+/// A sender set up a recurring remittance.
+#[contractevent]
+#[derive(Clone)]
+pub struct ScheduleCreated {
+    #[topic]
+    pub from: Address,
+    pub id: u64,
+    pub to: Address,
+    pub amount: i128,
+    pub interval: u64,
+    pub runs: u32,
+}
+
+/// A recurring remittance ran (its split is in the FundsReceived event).
+#[contractevent]
+#[derive(Clone)]
+pub struct ScheduleRun {
+    #[topic]
+    pub id: u64,
+    pub runs_left: u32,
+}
+
+/// A sender cancelled a recurring remittance.
+#[contractevent]
+#[derive(Clone)]
+pub struct ScheduleCancelled {
+    #[topic]
+    pub id: u64,
+}
+
 /// The admin changed the per-recipient savings cap.
 #[contractevent]
 #[derive(Clone)]

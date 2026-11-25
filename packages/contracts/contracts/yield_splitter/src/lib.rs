@@ -26,21 +26,29 @@
 
 mod errors;
 mod events;
+mod remit;
 mod storage;
 mod types;
 
 pub use errors::Error;
 pub use storage::{DataKey, USER_TTL_EXTEND_TO, USER_TTL_THRESHOLD};
-pub use types::{Config, Position};
+pub use types::{Config, Payment, Position, Schedule};
 
 use events::{
-    FundsReceived, PausedSet, SavingsDeposited, SavingsSpent, SavingsWithdrawn, SplitSet,
-    UserCapSet,
+    PausedSet, SavingsDeposited, SavingsSpent, SavingsWithdrawn, ScheduleCancelled,
+    ScheduleCreated, ScheduleRun, SplitSet, UserCapSet,
 };
-use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, BytesN, Env};
+use remit::{remit, Pull};
+use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, BytesN, Env, Vec};
 
 /// 100% expressed in basis points.
 const BPS_DENOMINATOR: u32 = 10_000;
+/// Most recipients one `send_batch` may pay (keeps it within resource limits).
+pub const MAX_BATCH: u32 = 10;
+/// Shortest interval between runs of a recurring remittance (1 minute).
+pub const MIN_INTERVAL: u64 = 60;
+/// Most runs a single schedule may have.
+pub const MAX_RUNS: u32 = 120;
 
 #[contract]
 pub struct YieldSplitter;
@@ -116,36 +124,121 @@ impl YieldSplitter {
         if storage::is_paused(&env) {
             panic_with_error!(&env, Error::Paused);
         }
-        if amount <= 0 {
-            panic_with_error!(&env, Error::InvalidAmount);
-        }
-
-        let (spendable, savings) = split_amount(amount, storage::split(&env, &to));
-        if storage::savings(&env, &to) + savings > storage::user_cap(&env) {
-            panic_with_error!(&env, Error::CapExceeded);
-        }
-
-        let token = token::Client::new(&env, &storage::token(&env));
-        if spendable > 0 {
-            token.transfer(&from, &to, &spendable);
-        }
-        if savings > 0 {
-            token.transfer(&from, &env.current_contract_address(), &savings);
-            storage::add_savings(&env, &to, savings);
-        }
-        storage::touch_split(&env, &to);
+        let result = remit(&env, &from, &to, amount, Pull::Signed);
         storage::bump_instance(&env);
+        result
+    }
 
-        FundsReceived {
-            to,
+    /// Send to several people with one signature: each payment is split by
+    /// its recipient's own ratio, exactly as `receive` would. Up to
+    /// `MAX_BATCH` payments. Returns the total sent.
+    pub fn send_batch(env: Env, from: Address, payments: Vec<Payment>) -> i128 {
+        from.require_auth();
+        if storage::is_paused(&env) {
+            panic_with_error!(&env, Error::Paused);
+        }
+        if payments.is_empty() || payments.len() > MAX_BATCH {
+            panic_with_error!(&env, Error::InvalidBatch);
+        }
+        let mut total: i128 = 0;
+        for payment in payments.iter() {
+            remit(&env, &from, &payment.to, payment.amount, Pull::Signed);
+            total += payment.amount;
+        }
+        storage::bump_instance(&env);
+        total
+    }
+
+    // ── Recurring remittances ───────────────────────────────────────────────
+
+    /// Set up a recurring remittance of `amount` to `to` every `interval`
+    /// seconds, `runs` times. The first run is due right away. Funds are
+    /// pulled from `from`'s allowance on the token, so `from` must approve
+    /// this contract for at least `amount * runs` (the API builds both).
+    /// Returns the schedule id.
+    pub fn create_schedule(
+        env: Env,
+        from: Address,
+        to: Address,
+        amount: i128,
+        interval: u64,
+        runs: u32,
+    ) -> u64 {
+        from.require_auth();
+        if amount <= 0 || interval < MIN_INTERVAL || runs == 0 || runs > MAX_RUNS {
+            panic_with_error!(&env, Error::InvalidSchedule);
+        }
+        let id = storage::next_schedule_id(&env);
+        storage::set_schedule(
+            &env,
+            id,
+            &Schedule {
+                from: from.clone(),
+                to: to.clone(),
+                amount,
+                interval,
+                next_at: env.ledger().timestamp(),
+                runs_left: runs,
+            },
+        );
+        storage::bump_instance(&env);
+        ScheduleCreated {
             from,
+            id,
+            to,
             amount,
-            spendable,
-            savings,
+            interval,
+            runs,
         }
         .publish(&env);
+        id
+    }
 
-        (spendable, savings)
+    /// Run a due recurring remittance. Anyone may call it (a keeper, the
+    /// recipient, the sender): the terms were fixed and signed by the sender
+    /// when the schedule was created. If a run is late, the next one is
+    /// due `interval` after now, so missed periods never stack up.
+    pub fn run_schedule(env: Env, id: u64) -> (i128, i128) {
+        if storage::is_paused(&env) {
+            panic_with_error!(&env, Error::Paused);
+        }
+        let mut schedule = storage::schedule(&env, id)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ScheduleNotFound));
+        let now = env.ledger().timestamp();
+        if now < schedule.next_at {
+            panic_with_error!(&env, Error::ScheduleNotDue);
+        }
+
+        let result = remit(&env, &schedule.from, &schedule.to, schedule.amount, Pull::Allowance);
+
+        schedule.runs_left -= 1;
+        if schedule.runs_left == 0 {
+            storage::remove_schedule(&env, id);
+        } else {
+            schedule.next_at = now + schedule.interval;
+            storage::set_schedule(&env, id, &schedule);
+        }
+        storage::bump_instance(&env);
+        ScheduleRun {
+            id,
+            runs_left: schedule.runs_left,
+        }
+        .publish(&env);
+        result
+    }
+
+    /// Stop a recurring remittance. Only its sender can cancel it.
+    pub fn cancel_schedule(env: Env, id: u64) {
+        let schedule = storage::schedule(&env, id)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::ScheduleNotFound));
+        schedule.from.require_auth();
+        storage::remove_schedule(&env, id);
+        ScheduleCancelled { id }.publish(&env);
+    }
+
+    /// A recurring remittance by id, if it still has runs left.
+    pub fn schedule(env: Env, id: u64) -> Option<Schedule> {
+        storage::schedule(&env, id)
     }
 
     /// Move `amount` of the caller's own USDC from their wallet into their
@@ -257,7 +350,7 @@ impl YieldSplitter {
 
 /// Split `amount` into `(spendable, savings)` for a spendable ratio in bps.
 /// Rounding favors savings: spendable is floored, savings takes the remainder.
-fn split_amount(amount: i128, spendable_bps: u32) -> (i128, i128) {
+pub(crate) fn split_amount(amount: i128, spendable_bps: u32) -> (i128, i128) {
     let spendable = amount * i128::from(spendable_bps) / i128::from(BPS_DENOMINATOR);
     (spendable, amount - spendable)
 }

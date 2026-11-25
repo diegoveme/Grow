@@ -4,6 +4,7 @@
 use soroban_sdk::{contracttype, panic_with_error, Address, Env};
 
 use crate::errors::Error;
+use crate::types::Schedule;
 
 /// Default split when a recipient has not chosen one: 70% spendable / 30% savings.
 pub const DEFAULT_SPENDABLE_BPS: u32 = 7_000;
@@ -31,6 +32,10 @@ pub enum DataKey {
     Split(Address),
     /// Per-recipient savings held by this contract.
     Savings(Address),
+    /// Id the next recurring remittance will get.
+    NextScheduleId,
+    /// A recurring remittance by id.
+    Schedule(u64),
 }
 
 // ── Instance settings ───────────────────────────────────────────────────────
@@ -126,6 +131,29 @@ pub fn add_savings(env: &Env, user: &Address, delta: i128) -> i128 {
         bump_user(env, &key);
     }
     updated
+}
+
+// ── Recurring remittances ───────────────────────────────────────────────────
+
+/// Reserve the next schedule id.
+pub fn next_schedule_id(env: &Env) -> u64 {
+    let id: u64 = env.storage().instance().get(&DataKey::NextScheduleId).unwrap_or(1);
+    env.storage().instance().set(&DataKey::NextScheduleId, &(id + 1));
+    id
+}
+
+pub fn schedule(env: &Env, id: u64) -> Option<Schedule> {
+    env.storage().persistent().get(&DataKey::Schedule(id))
+}
+
+pub fn set_schedule(env: &Env, id: u64, schedule: &Schedule) {
+    let key = DataKey::Schedule(id);
+    env.storage().persistent().set(&key, schedule);
+    bump_user(env, &key);
+}
+
+pub fn remove_schedule(env: &Env, id: u64) {
+    env.storage().persistent().remove(&DataKey::Schedule(id));
 }
 
 fn bump_user(env: &Env, key: &DataKey) {

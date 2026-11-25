@@ -4,7 +4,7 @@ use super::*;
 use soroban_sdk::{
     testutils::{
         storage::{Instance as _, Persistent as _},
-        Address as _, Events as _,
+        Address as _, Events as _, Ledger as _,
     },
     token::{self, StellarAssetClient},
     Address, Env,
@@ -498,6 +498,189 @@ fn pay_from_savings_still_works_while_paused() {
     h.client.pay_from_savings(&recipient, &school, &60);
 
     assert_eq!(h.token.balance(&school), 60);
+}
+
+// ── send_batch ──────────────────────────────────────────────────────────────
+
+fn pay(to: &Address, amount: i128) -> Payment {
+    Payment { to: to.clone(), amount }
+}
+
+#[test]
+fn send_batch_splits_each_payment_by_its_recipients_ratio() {
+    let h = setup();
+    let (sender, mom) = h.parties(1_000);
+    let sister = Address::generate(&h.env);
+    h.client.set_split(&sister, &10_000); // sister keeps everything spendable
+
+    let total = h
+        .client
+        .send_batch(&sender, &soroban_sdk::vec![&h.env, pay(&mom, 200), pay(&sister, 100)]);
+
+    assert_eq!(total, 300);
+    assert_eq!(h.token.balance(&mom), 140);
+    assert_eq!(h.client.savings(&mom), 60);
+    assert_eq!(h.token.balance(&sister), 100);
+    assert_eq!(h.client.savings(&sister), 0);
+    assert_eq!(h.token.balance(&sender), 700);
+}
+
+#[test]
+fn send_batch_needs_only_the_senders_signature() {
+    let h = setup();
+    let (sender, mom) = h.parties(1_000);
+    let sister = Address::generate(&h.env);
+    h.client
+        .send_batch(&sender, &soroban_sdk::vec![&h.env, pay(&mom, 10), pay(&sister, 10)]);
+
+    let auths = h.env.auths();
+    assert_eq!(auths.len(), 1);
+    assert_eq!(auths[0].0, sender);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #11)")]
+fn send_batch_rejects_an_empty_list() {
+    let h = setup();
+    let sender = Address::generate(&h.env);
+    h.client.send_batch(&sender, &soroban_sdk::vec![&h.env]);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #11)")]
+fn send_batch_rejects_too_many_payments() {
+    let h = setup();
+    let (sender, mom) = h.parties(1_000);
+    let mut payments = soroban_sdk::Vec::new(&h.env);
+    for _ in 0..(MAX_BATCH + 1) {
+        payments.push_back(pay(&mom, 1));
+    }
+    h.client.send_batch(&sender, &payments);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #3)")]
+fn send_batch_is_all_or_nothing() {
+    let h = setup();
+    let (sender, mom) = h.parties(1_000);
+    // The second payment is invalid, so the first one must not land either.
+    h.client
+        .send_batch(&sender, &soroban_sdk::vec![&h.env, pay(&mom, 100), pay(&mom, 0)]);
+}
+
+// ── recurring remittances ───────────────────────────────────────────────────
+
+const HOUR: u64 = 3_600;
+
+/// A sender with funds who approved the contract for `allowance`.
+fn approved_sender(h: &Harness, funds: i128, allowance: i128) -> Address {
+    let sender = Address::generate(&h.env);
+    h.token_admin.mint(&sender, &funds);
+    h.token.approve(&sender, &h.client.address, &allowance, &10_000);
+    sender
+}
+
+fn advance(h: &Harness, seconds: u64) {
+    h.env.ledger().with_mut(|l| l.timestamp += seconds);
+}
+
+#[test]
+fn schedule_runs_the_split_and_counts_down() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 300);
+    let mom = Address::generate(&h.env);
+    let id = h.client.create_schedule(&sender, &mom, &100, &HOUR, &3);
+
+    // First run is due right away; anyone can trigger it.
+    assert_eq!(h.client.run_schedule(&id), (70, 30));
+    assert_eq!(h.token.balance(&mom), 70);
+    assert_eq!(h.client.savings(&mom), 30);
+    assert_eq!(h.client.schedule(&id).unwrap().runs_left, 2);
+
+    advance(&h, HOUR);
+    h.client.run_schedule(&id);
+    advance(&h, HOUR);
+    h.client.run_schedule(&id);
+
+    assert_eq!(h.token.balance(&sender), 700);
+    assert_eq!(h.token.balance(&mom), 210);
+    // Out of runs: the schedule is gone and so is the allowance.
+    assert_eq!(h.client.schedule(&id), None);
+    assert_eq!(h.token.allowance(&sender, &h.client.address), 0);
+}
+
+#[test]
+fn running_a_schedule_needs_no_signature() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 100);
+    let mom = Address::generate(&h.env);
+    let id = h.client.create_schedule(&sender, &mom, &100, &HOUR, &1);
+
+    h.client.run_schedule(&id);
+
+    assert!(h.env.auths().is_empty());
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #9)")]
+fn schedule_cannot_run_before_it_is_due() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 300);
+    let mom = Address::generate(&h.env);
+    let id = h.client.create_schedule(&sender, &mom, &100, &HOUR, &3);
+    h.client.run_schedule(&id);
+    advance(&h, HOUR - 1);
+    h.client.run_schedule(&id);
+}
+
+#[test]
+fn a_late_run_does_not_let_missed_periods_stack_up() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 300);
+    let mom = Address::generate(&h.env);
+    let id = h.client.create_schedule(&sender, &mom, &100, &HOUR, &3);
+    h.client.run_schedule(&id);
+
+    advance(&h, 5 * HOUR); // keeper was down for a while
+    h.client.run_schedule(&id);
+
+    // Only one more run went through; the next is an interval from now.
+    assert!(h.client.try_run_schedule(&id).is_err());
+    assert_eq!(h.token.balance(&mom), 140);
+}
+
+#[test]
+fn only_the_sender_can_cancel_a_schedule() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 300);
+    let mom = Address::generate(&h.env);
+    let id = h.client.create_schedule(&sender, &mom, &100, &HOUR, &3);
+
+    h.client.cancel_schedule(&id);
+
+    assert_eq!(h.env.auths()[0].0, sender);
+    assert_eq!(h.client.schedule(&id), None);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #10)")]
+fn schedule_interval_has_a_floor() {
+    let h = setup();
+    let sender = Address::generate(&h.env);
+    let mom = Address::generate(&h.env);
+    h.client.create_schedule(&sender, &mom, &100, &(MIN_INTERVAL - 1), &3);
+}
+
+#[test]
+fn schedule_stops_when_the_sender_revokes_the_allowance() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 300);
+    let mom = Address::generate(&h.env);
+    let id = h.client.create_schedule(&sender, &mom, &100, &HOUR, &3);
+    h.token.approve(&sender, &h.client.address, &0, &10_000);
+
+    assert!(h.client.try_run_schedule(&id).is_err());
+    assert_eq!(h.token.balance(&mom), 0);
 }
 
 // ── upgrade ─────────────────────────────────────────────────────────────────

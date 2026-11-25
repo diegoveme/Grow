@@ -14,4 +14,8 @@ pub enum Error {
     CapExceeded = 5,
     Paused = 6,
     InvalidCap = 7,
+    ScheduleNotFound = 8,
+    ScheduleNotDue = 9,
+    InvalidSchedule = 10,
+    InvalidBatch = 11,
 }
