@@ -17,6 +17,11 @@
 //! (`deposit_savings`), withdraw them at any time (`withdraw_savings`) or pay
 //! someone directly out of them (`pay_from_savings`).
 //!
+//! Senders can also pay several people at once (`send_batch`), schedule a
+//! remittance to repeat (`create_schedule` / `run_schedule`) or earmark money
+//! for a specific payee that the family releases (`create_pledge` /
+//! `release_pledge`, with `refund_pledge` if it goes unused).
+//!
 //! Beta guardrails: savings per recipient are capped (`user_cap`), and the
 //! admin can pause new deposits. Withdrawals always stay open. The admin can
 //! also upgrade the contract code to ship fixes without migrating funds.
@@ -32,11 +37,12 @@ mod types;
 
 pub use errors::Error;
 pub use storage::{DataKey, USER_TTL_EXTEND_TO, USER_TTL_THRESHOLD};
-pub use types::{Config, Payment, Position, Schedule};
+pub use types::{Config, Payment, Pledge, Position, Schedule};
 
 use events::{
-    PausedSet, SavingsDeposited, SavingsSpent, SavingsWithdrawn, ScheduleCancelled,
-    ScheduleCreated, ScheduleRun, SplitSet, UserCapSet,
+    PausedSet, PledgeCreated, PledgeRefunded, PledgeReleased, SavingsDeposited, SavingsSpent,
+    SavingsWithdrawn, ScheduleCancelled, ScheduleCreated, ScheduleRun, SplitSet, TokenRecovered,
+    UserCapSet,
 };
 use remit::{remit, Pull};
 use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, BytesN, Env, Vec};
@@ -82,6 +88,21 @@ impl YieldSplitter {
         storage::admin(&env).require_auth();
         storage::set_paused(&env, paused);
         PausedSet { paused }.publish(&env);
+    }
+
+    /// Return a token someone sent to the contract by mistake. Admin only.
+    /// The configured USDC is refused: it backs users' savings and pledges.
+    pub fn recover_token(env: Env, token: Address, to: Address, amount: i128) {
+        storage::admin(&env).require_auth();
+        if token == storage::token(&env) {
+            panic_with_error!(&env, Error::RecoverForbidden);
+        }
+        if amount <= 0 {
+            panic_with_error!(&env, Error::InvalidAmount);
+        }
+        token::Client::new(&env, &token).transfer(&env.current_contract_address(), &to, &amount);
+        storage::bump_instance(&env);
+        TokenRecovered { token, to, amount }.publish(&env);
     }
 
     /// Replace the contract code, keeping its id and storage. Admin only.
@@ -234,6 +255,113 @@ impl YieldSplitter {
         schedule.from.require_auth();
         storage::remove_schedule(&env, id);
         ScheduleCancelled { id }.publish(&env);
+    }
+
+    // ── Conditional remittances ─────────────────────────────────────────────
+
+    /// Set aside `amount` for `beneficiary` to spend only on `payee` (school
+    /// fees, a clinic, rent). The funds leave the sender now and wait here,
+    /// apart from anyone's savings. Capped like savings during the beta.
+    /// Returns the pledge id.
+    pub fn create_pledge(
+        env: Env,
+        from: Address,
+        beneficiary: Address,
+        payee: Address,
+        amount: i128,
+        expires_at: u64,
+    ) -> u64 {
+        from.require_auth();
+        if storage::is_paused(&env) {
+            panic_with_error!(&env, Error::Paused);
+        }
+        if amount <= 0 || expires_at <= env.ledger().timestamp() {
+            panic_with_error!(&env, Error::InvalidPledge);
+        }
+        if amount > storage::user_cap(&env) {
+            panic_with_error!(&env, Error::CapExceeded);
+        }
+        token::Client::new(&env, &storage::token(&env)).transfer(
+            &from,
+            &env.current_contract_address(),
+            &amount,
+        );
+        let id = storage::next_pledge_id(&env);
+        storage::set_pledge(
+            &env,
+            id,
+            &Pledge {
+                from: from.clone(),
+                beneficiary: beneficiary.clone(),
+                payee: payee.clone(),
+                amount,
+                expires_at,
+            },
+        );
+        storage::bump_instance(&env);
+        PledgeCreated {
+            from,
+            id,
+            beneficiary,
+            payee,
+            amount,
+            expires_at,
+        }
+        .publish(&env);
+        id
+    }
+
+    /// The beneficiary pays the pledge to its payee. Allowed until it
+    /// expires; never paused.
+    pub fn release_pledge(env: Env, id: u64) {
+        let pledge = storage::pledge(&env, id)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::PledgeNotFound));
+        pledge.beneficiary.require_auth();
+        if env.ledger().timestamp() > pledge.expires_at {
+            panic_with_error!(&env, Error::PledgeExpired);
+        }
+        storage::remove_pledge(&env, id);
+        token::Client::new(&env, &storage::token(&env)).transfer(
+            &env.current_contract_address(),
+            &pledge.payee,
+            &pledge.amount,
+        );
+        storage::bump_instance(&env);
+        PledgeReleased {
+            id,
+            payee: pledge.payee,
+            amount: pledge.amount,
+        }
+        .publish(&env);
+    }
+
+    /// After a pledge expires unused, its sender takes the funds back.
+    /// Never paused.
+    pub fn refund_pledge(env: Env, id: u64) {
+        let pledge = storage::pledge(&env, id)
+            .unwrap_or_else(|| panic_with_error!(&env, Error::PledgeNotFound));
+        pledge.from.require_auth();
+        if env.ledger().timestamp() <= pledge.expires_at {
+            panic_with_error!(&env, Error::PledgeNotExpired);
+        }
+        storage::remove_pledge(&env, id);
+        token::Client::new(&env, &storage::token(&env)).transfer(
+            &env.current_contract_address(),
+            &pledge.from,
+            &pledge.amount,
+        );
+        storage::bump_instance(&env);
+        PledgeRefunded {
+            id,
+            from: pledge.from,
+            amount: pledge.amount,
+        }
+        .publish(&env);
+    }
+
+    /// A pledge by id, while it is still open.
+    pub fn pledge(env: Env, id: u64) -> Option<Pledge> {
+        storage::pledge(&env, id)
     }
 
     /// A recurring remittance by id, if it still has runs left.

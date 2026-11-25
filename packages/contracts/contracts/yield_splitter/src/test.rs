@@ -683,6 +683,151 @@ fn schedule_stops_when_the_sender_revokes_the_allowance() {
     assert_eq!(h.token.balance(&mom), 0);
 }
 
+// ── conditional remittances (pledges) ───────────────────────────────────────
+
+const DAY: u64 = 86_400;
+
+struct PledgeSetup {
+    sender: Address,
+    mom: Address,
+    school: Address,
+    id: u64,
+}
+
+/// Sender pledges 300 for mom to pay the school within a week.
+fn pledged(h: &Harness) -> PledgeSetup {
+    let sender = Address::generate(&h.env);
+    let mom = Address::generate(&h.env);
+    let school = Address::generate(&h.env);
+    h.token_admin.mint(&sender, &1_000);
+    let expires = h.env.ledger().timestamp() + 7 * DAY;
+    let id = h.client.create_pledge(&sender, &mom, &school, &300, &expires);
+    PledgeSetup { sender, mom, school, id }
+}
+
+#[test]
+fn create_pledge_holds_the_funds_apart_from_savings() {
+    let h = setup();
+    let p = pledged(&h);
+
+    assert_eq!(h.token.balance(&p.sender), 700);
+    assert_eq!(h.token.balance(&h.client.address), 300);
+    assert_eq!(h.client.savings(&p.mom), 0);
+    assert_eq!(h.client.pledge(&p.id).unwrap().amount, 300);
+}
+
+#[test]
+fn the_beneficiary_releases_the_pledge_to_the_payee() {
+    let h = setup();
+    let p = pledged(&h);
+
+    h.client.release_pledge(&p.id);
+
+    assert_eq!(h.env.auths()[0].0, p.mom);
+    assert_eq!(h.token.balance(&p.school), 300);
+    assert_eq!(h.token.balance(&p.mom), 0); // never passes through mom's wallet
+    assert_eq!(h.client.pledge(&p.id), None);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #13)")]
+fn an_expired_pledge_can_no_longer_be_released() {
+    let h = setup();
+    let p = pledged(&h);
+    h.env.ledger().with_mut(|l| l.timestamp += 7 * DAY + 1);
+    h.client.release_pledge(&p.id);
+}
+
+#[test]
+fn the_sender_gets_an_unused_pledge_back_after_it_expires() {
+    let h = setup();
+    let p = pledged(&h);
+    h.env.ledger().with_mut(|l| l.timestamp += 7 * DAY + 1);
+
+    h.client.refund_pledge(&p.id);
+
+    assert_eq!(h.env.auths()[0].0, p.sender);
+    assert_eq!(h.token.balance(&p.sender), 1_000);
+    assert_eq!(h.client.pledge(&p.id), None);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #14)")]
+fn a_pledge_cannot_be_refunded_before_it_expires() {
+    let h = setup();
+    let p = pledged(&h);
+    h.client.refund_pledge(&p.id);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #12)")]
+fn a_released_pledge_cannot_be_refunded_or_released_again() {
+    let h = setup();
+    let p = pledged(&h);
+    h.client.release_pledge(&p.id);
+    h.client.release_pledge(&p.id);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn a_pledge_is_capped_like_savings() {
+    let h = setup();
+    let sender = Address::generate(&h.env);
+    let mom = Address::generate(&h.env);
+    h.token_admin.mint(&sender, &5_000);
+    h.client.create_pledge(&sender, &mom, &mom, &(CAP + 1), &DAY);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #15)")]
+fn a_pledge_must_expire_in_the_future() {
+    let h = setup();
+    let sender = Address::generate(&h.env);
+    let mom = Address::generate(&h.env);
+    h.token_admin.mint(&sender, &100);
+    h.client.create_pledge(&sender, &mom, &mom, &100, &h.env.ledger().timestamp());
+}
+
+#[test]
+fn pledges_can_be_released_while_deposits_are_paused() {
+    let h = setup();
+    let p = pledged(&h);
+    h.client.set_paused(&true);
+
+    h.client.release_pledge(&p.id);
+
+    assert_eq!(h.token.balance(&p.school), 300);
+}
+
+// ── recover_token ───────────────────────────────────────────────────────────
+
+#[test]
+fn the_admin_returns_a_token_sent_by_mistake() {
+    let h = setup();
+    let other = StellarAssetClient::new(
+        &h.env,
+        &h.env.register_stellar_asset_contract_v2(h.admin.clone()).address(),
+    );
+    let other_token = token::Client::new(&h.env, &other.address);
+    let sender = Address::generate(&h.env);
+    other.mint(&h.client.address, &50); // landed here by mistake
+
+    h.client.recover_token(&other.address, &sender, &50);
+
+    assert_eq!(h.env.auths()[0].0, h.admin);
+    assert_eq!(other_token.balance(&sender), 50);
+    assert_eq!(other_token.balance(&h.client.address), 0);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #16)")]
+fn recover_token_can_never_touch_users_usdc() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    h.client.receive(&sender, &recipient, &200);
+    h.client.recover_token(&h.token.address, &h.admin, &60);
+}
+
 // ── upgrade ─────────────────────────────────────────────────────────────────
 //
 // Needs real wasm to swap in, so it runs with the `upgrade-test` feature after

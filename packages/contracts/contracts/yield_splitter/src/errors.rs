@@ -18,4 +18,9 @@ pub enum Error {
     ScheduleNotDue = 9,
     InvalidSchedule = 10,
     InvalidBatch = 11,
+    PledgeNotFound = 12,
+    PledgeExpired = 13,
+    PledgeNotExpired = 14,
+    InvalidPledge = 15,
+    RecoverForbidden = 16,
 }

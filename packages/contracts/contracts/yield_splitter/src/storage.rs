@@ -4,7 +4,7 @@
 use soroban_sdk::{contracttype, panic_with_error, Address, Env};
 
 use crate::errors::Error;
-use crate::types::Schedule;
+use crate::types::{Pledge, Schedule};
 
 /// Default split when a recipient has not chosen one: 70% spendable / 30% savings.
 pub const DEFAULT_SPENDABLE_BPS: u32 = 7_000;
@@ -36,6 +36,10 @@ pub enum DataKey {
     NextScheduleId,
     /// A recurring remittance by id.
     Schedule(u64),
+    /// Id the next pledge will get.
+    NextPledgeId,
+    /// A conditional remittance by id.
+    Pledge(u64),
 }
 
 // ── Instance settings ───────────────────────────────────────────────────────
@@ -154,6 +158,28 @@ pub fn set_schedule(env: &Env, id: u64, schedule: &Schedule) {
 
 pub fn remove_schedule(env: &Env, id: u64) {
     env.storage().persistent().remove(&DataKey::Schedule(id));
+}
+
+// ── Conditional remittances ─────────────────────────────────────────────────
+
+pub fn next_pledge_id(env: &Env) -> u64 {
+    let id: u64 = env.storage().instance().get(&DataKey::NextPledgeId).unwrap_or(1);
+    env.storage().instance().set(&DataKey::NextPledgeId, &(id + 1));
+    id
+}
+
+pub fn pledge(env: &Env, id: u64) -> Option<Pledge> {
+    env.storage().persistent().get(&DataKey::Pledge(id))
+}
+
+pub fn set_pledge(env: &Env, id: u64, pledge: &Pledge) {
+    let key = DataKey::Pledge(id);
+    env.storage().persistent().set(&key, pledge);
+    bump_user(env, &key);
+}
+
+pub fn remove_pledge(env: &Env, id: u64) {
+    env.storage().persistent().remove(&DataKey::Pledge(id));
 }
 
 fn bump_user(env: &Env, key: &DataKey) {

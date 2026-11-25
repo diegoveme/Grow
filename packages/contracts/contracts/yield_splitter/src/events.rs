@@ -85,6 +85,49 @@ pub struct ScheduleCancelled {
     pub id: u64,
 }
 
+/// A sender set aside funds for a specific payee (conditional remittance).
+#[contractevent]
+#[derive(Clone)]
+pub struct PledgeCreated {
+    #[topic]
+    pub from: Address,
+    pub id: u64,
+    pub beneficiary: Address,
+    pub payee: Address,
+    pub amount: i128,
+    pub expires_at: u64,
+}
+
+/// The beneficiary released a pledge: the payee got paid.
+#[contractevent]
+#[derive(Clone)]
+pub struct PledgeReleased {
+    #[topic]
+    pub id: u64,
+    pub payee: Address,
+    pub amount: i128,
+}
+
+/// An expired, unused pledge went back to its sender.
+#[contractevent]
+#[derive(Clone)]
+pub struct PledgeRefunded {
+    #[topic]
+    pub id: u64,
+    pub from: Address,
+    pub amount: i128,
+}
+
+/// The admin returned a token that was sent to the contract by mistake.
+#[contractevent]
+#[derive(Clone)]
+pub struct TokenRecovered {
+    #[topic]
+    pub token: Address,
+    pub to: Address,
+    pub amount: i128,
+}
+
 /// The admin changed the per-recipient savings cap.
 #[contractevent]
 #[derive(Clone)]

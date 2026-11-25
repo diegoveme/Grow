@@ -34,6 +34,20 @@ pub struct Schedule {
     pub runs_left: u32,
 }
 
+/// A conditional remittance: `amount` the sender set aside for a purpose.
+/// `beneficiary` (the family) releases it straight to `payee` (a school, a
+/// clinic) until `expires_at`; after that only the sender can take it back.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[contracttype]
+pub struct Pledge {
+    pub from: Address,
+    pub beneficiary: Address,
+    pub payee: Address,
+    pub amount: i128,
+    /// Ledger timestamp; release allowed up to it, refund only after it.
+    pub expires_at: u64,
+}
+
 /// Global contract settings, returned by `config`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[contracttype]
