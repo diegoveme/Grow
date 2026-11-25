@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
-import { Address, rpc, scValToNative, xdr } from '@stellar/stellar-sdk';
+import { rpc, scValToNative } from '@stellar/stellar-sdk';
 import {
   BPS_DENOMINATOR,
   DEFAULT_SPLIT,
@@ -17,7 +17,8 @@ import {
   type RemittanceStatus,
 } from '@raiz/shared';
 import { DatabaseService } from '../database/database.service';
-import { StellarService } from '../stellar/stellar.service';
+import { SorobanService } from '../stellar/soroban.service';
+import { invokedContract } from './receive-call';
 import type { AppConfig } from '../config/configuration';
 
 interface RemittanceRow {
@@ -47,7 +48,7 @@ export class RemittancesService {
 
   constructor(
     private readonly db: DatabaseService,
-    private readonly stellar: StellarService,
+    private readonly soroban: SorobanService,
     private readonly config: ConfigService<AppConfig, true>,
   ) {}
 
@@ -129,7 +130,7 @@ export class RemittancesService {
       throw new ServiceUnavailableException('YIELD_SPLITTER_CONTRACT_ID is not configured.');
     }
 
-    const tx = await this.stellar.server.getTransaction(hash);
+    const tx = await this.soroban.server.getTransaction(hash);
     if (tx.status !== rpc.Api.GetTransactionStatus.SUCCESS) {
       throw new BadRequestException(
         tx.status === rpc.Api.GetTransactionStatus.NOT_FOUND
@@ -158,30 +159,6 @@ export class RemittancesService {
       createdAt: new Date(tx.createdAt * 1000).toISOString(),
       txHash: hash,
     };
-  }
-}
-
-/** The contract call inside a single-operation Soroban transaction, if any. */
-function invokedContract(
-  envelope: xdr.TransactionEnvelope,
-): { contract: string; fn: string; args: xdr.ScVal[] } | undefined {
-  try {
-    const inner =
-      envelope.switch() === xdr.EnvelopeType.envelopeTypeTxFeeBump()
-        ? envelope.feeBump().tx().innerTx().v1().tx()
-        : envelope.v1().tx();
-    const [op] = inner.operations();
-    if (!op || op.body().switch() !== xdr.OperationType.invokeHostFunction()) return undefined;
-    const fn = op.body().invokeHostFunctionOp().hostFunction();
-    if (fn.switch() !== xdr.HostFunctionType.hostFunctionTypeInvokeContract()) return undefined;
-    const invoke = fn.invokeContract();
-    return {
-      contract: Address.fromScAddress(invoke.contractAddress()).toString(),
-      fn: invoke.functionName().toString(),
-      args: invoke.args(),
-    };
-  } catch {
-    return undefined;
   }
 }
 
