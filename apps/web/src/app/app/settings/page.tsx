@@ -6,10 +6,12 @@ import { SplitBar } from "@/components/app/split-bar";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ConnectButton } from "@/components/connect-button";
+import { ExplorerLink } from "@/components/app/explorer-link";
 import { api } from "@/lib/api";
+import { useSplitterConfig } from "@/lib/hooks";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
-import { config } from "@/lib/config";
+import { config, explorerAccount, explorerContract, explorerTx } from "@/lib/config";
 import { shortAddress } from "@/lib/format";
 import { DEFAULT_SPLIT } from "@raiz/shared";
 
@@ -18,6 +20,7 @@ const DEFAULT_SPENDABLE_PCT = DEFAULT_SPLIT.spendableBps / 100;
 export default function SettingsPage() {
   const { address } = useWallet();
   const tx = useTx();
+  const splitter = useSplitterConfig();
   const [spendable, setSpendable] = useState(DEFAULT_SPENDABLE_PCT); // percent
   const [saved, setSaved] = useState(false);
 
@@ -80,16 +83,39 @@ export default function SettingsPage() {
           {tx.loading ? "Saving…" : "Save split on-chain"}
         </Button>
         {tx.error && <p className="mt-3 text-xs text-oro">{tx.error}</p>}
-        {saved && <p className="mt-3 text-xs text-brote">Split saved on-chain ✓</p>}
+        {saved && tx.hash && (
+          <p className="mt-3 text-xs text-brote">
+            Split saved on-chain ✓{" "}
+            <ExplorerLink href={explorerTx(tx.hash)}>view transaction</ExplorerLink>
+          </p>
+        )}
       </Card>
 
       {/* Connection */}
       <Card className="mt-4">
         <CardLabel>Connection</CardLabel>
         <dl className="space-y-3 text-sm">
-          <Row label="Wallet" value={shortAddress(address, 8, 8)} mono />
+          <Row
+            label="Wallet"
+            value={shortAddress(address, 8, 8)}
+            href={explorerAccount(address)}
+            mono
+          />
           <Row label="Network" value={config.network === "PUBLIC" ? "Mainnet" : "Stellar Testnet"} />
-          <Row label="USDC contract" value={shortAddress(config.usdcContractId, 6, 6)} mono />
+          <Row
+            label="USDC contract"
+            value={shortAddress(config.usdcContractId, 6, 6)}
+            href={explorerContract(config.usdcContractId)}
+            mono
+          />
+          {splitter && (
+            <Row
+              label="Grow contract"
+              value={shortAddress(splitter.contractId, 6, 6)}
+              href={explorerContract(splitter.contractId)}
+              mono
+            />
+          )}
         </dl>
         <div className="mt-5">
           <ConnectButton />
@@ -99,11 +125,30 @@ export default function SettingsPage() {
   );
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Row({
+  label,
+  value,
+  mono,
+  href,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  /** StellarView page for this value, if it lives on-chain. */
+  href?: string;
+}) {
   return (
     <div className="flex items-center justify-between border-b border-luz/5 pb-3 last:border-0 last:pb-0">
       <dt className="opacity-50">{label}</dt>
-      <dd className={mono ? "font-mono text-xs" : ""}>{value}</dd>
+      <dd className={mono ? "font-mono text-xs" : ""}>
+        {href ? (
+          <ExplorerLink href={href} className="text-agua">
+            {value}
+          </ExplorerLink>
+        ) : (
+          value
+        )}
+      </dd>
     </div>
   );
 }

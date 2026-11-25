@@ -41,7 +41,7 @@ export default function ActivityPage() {
         rel="noreferrer"
         className="mt-4 block text-center text-xs text-agua/70 hover:text-agua"
       >
-        View full account on Stellar Expert ↗
+        View full account on StellarView ↗
       </a>
     </div>
   );

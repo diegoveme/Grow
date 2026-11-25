@@ -7,11 +7,12 @@ import { AnchorPanel } from "@/components/app/anchor-panel";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CopyIcon, CheckIcon } from "@/components/app/icons";
+import { ExplorerLink } from "@/components/app/explorer-link";
 import { api } from "@/lib/api";
 import { useTx } from "@/lib/use-tx";
 import { useWallet } from "@/lib/wallet";
 import { useAccount, useCopy } from "@/lib/hooks";
-import { config } from "@/lib/config";
+import { config, explorerAccount, explorerTx } from "@/lib/config";
 
 export default function ReceivePage() {
   const { address } = useWallet();
@@ -67,6 +68,9 @@ export default function ReceivePage() {
           {copied ? <CheckIcon width={15} height={15} /> : <CopyIcon width={15} height={15} />}
           {copied ? "Copied" : "Copy address"}
         </Button>
+        <div className="mt-3 text-xs text-agua/70">
+          <ExplorerLink href={explorerAccount(address)}>View on StellarView</ExplorerLink>
+        </div>
       </Card>
 
       {/* USDC trustline */}
@@ -96,7 +100,10 @@ export default function ReceivePage() {
             )}
             {trustTx.error && <p className="mt-3 text-xs text-oro">{trustTx.error}</p>}
             {trustTx.hash && (
-              <p className="mt-3 text-xs text-brote">USDC enabled ✓</p>
+              <p className="mt-3 text-xs text-brote">
+                USDC enabled ✓{" "}
+                <ExplorerLink href={explorerTx(trustTx.hash)}>view transaction</ExplorerLink>
+              </p>
             )}
           </>
         )}

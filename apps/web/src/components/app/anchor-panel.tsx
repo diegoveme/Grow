@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Card, CardLabel } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ExplorerLink } from "@/components/app/explorer-link";
 import { api } from "@/lib/api";
-import { config } from "@/lib/config";
+import { config, explorerTx } from "@/lib/config";
 import { useWallet } from "@/lib/wallet";
 
 type Status = "idle" | "authenticating" | "interactive" | "polling" | "done" | "error";
@@ -55,11 +56,14 @@ export function AnchorPanel() {
   const [asset, setAsset] = useState("USDC");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState<string | null>(null);
+  /** On-chain hash of the anchor's settlement, once it reports one. */
+  const [settledHash, setSettledHash] = useState<string | null>(null);
   const busy = status === "authenticating" || status === "interactive" || status === "polling";
 
   async function start(kind: "deposit" | "withdraw") {
     if (!address) return;
     setStatus("authenticating");
+    setSettledHash(null);
     setMessage("Authenticating with the anchor (SEP-10)…");
     try {
       // SEP-10: validate the challenge, sign it, exchange for a JWT.
@@ -89,6 +93,8 @@ export function AnchorPanel() {
           const st = String(tx.status ?? "");
           setMessage(`Anchor status: ${st.replace(/_/g, " ")}`);
           if (st === "completed") {
+            const hash = tx.stellar_transaction_id;
+            if (typeof hash === "string" && /^[0-9a-f]{64}$/i.test(hash)) setSettledHash(hash);
             setStatus("done");
             setMessage("Done. The anchor settled your transaction.");
             popup?.close();
@@ -153,6 +159,11 @@ export function AnchorPanel() {
           }`}
         >
           {message}
+        </p>
+      )}
+      {settledHash && (
+        <p className="mt-2 text-xs text-brote">
+          <ExplorerLink href={explorerTx(settledHash)}>View settlement on StellarView</ExplorerLink>
         </p>
       )}
     </Card>

@@ -11,12 +11,13 @@ export const config = {
   usdcContractId:
     process.env.NEXT_PUBLIC_USDC_TOKEN_ID ??
     "CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU",
-  /** StellarView explorer base for the active network. */
+  /** StellarView explorer base for the active network ("/en/public" now redirects). */
   explorer:
     network === "PUBLIC"
-      ? "https://stellarview.acachete.xyz/en/public"
+      ? "https://stellarview.acachete.xyz/en/mainnet"
       : "https://stellarview.acachete.xyz/en/testnet",
 };
 
 export const explorerTx = (hash: string) => `${config.explorer}/tx/${hash}`;
 export const explorerAccount = (address: string) => `${config.explorer}/account/${address}`;
+export const explorerContract = (id: string) => `${config.explorer}/contract/${id}`;
