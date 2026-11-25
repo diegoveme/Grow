@@ -11,6 +11,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { BPS_DENOMINATOR } from '@raiz/shared';
 import { SplitsService } from './splits.service';
 import {
+  CreatePledgeDto,
   CreateScheduleDto,
   DepositSavingsDto,
   ScheduleCallerDto,
@@ -110,6 +111,39 @@ export class SplitsController {
   @ApiOperation({ summary: 'Build an unsigned cancel_schedule (sender only)' })
   async buildCancelSchedule(@Param('id', ParseIntPipe) id: number, @Body() dto: ScheduleCallerDto) {
     return { xdr: await this.splits.buildCancelSchedule(dto.caller, id) };
+  }
+
+  @Post('pledges/build')
+  @ApiOperation({ summary: 'Build an unsigned create_pledge (conditional remittance)' })
+  async buildCreatePledge(@Body() dto: CreatePledgeDto) {
+    const xdr = await this.splits.buildCreatePledge(
+      dto.from,
+      dto.beneficiary,
+      dto.payee,
+      dto.amount,
+      dto.expiresAt,
+    );
+    return { xdr };
+  }
+
+  @Get('pledges/:id')
+  @ApiOperation({ summary: 'An open conditional remittance by id' })
+  async pledge(@Param('id', ParseIntPipe) id: number) {
+    const pledge = await this.splits.getPledge(id);
+    if (!pledge) throw new NotFoundException(`Pledge ${id} not found, paid or refunded.`);
+    return pledge;
+  }
+
+  @Post('pledges/:id/release/build')
+  @ApiOperation({ summary: 'Build an unsigned release_pledge (beneficiary pays the payee)' })
+  async buildReleasePledge(@Param('id', ParseIntPipe) id: number, @Body() dto: ScheduleCallerDto) {
+    return { xdr: await this.splits.buildReleasePledge(dto.caller, id) };
+  }
+
+  @Post('pledges/:id/refund/build')
+  @ApiOperation({ summary: 'Build an unsigned refund_pledge (sender, after expiry)' })
+  async buildRefundPledge(@Param('id', ParseIntPipe) id: number, @Body() dto: ScheduleCallerDto) {
+    return { xdr: await this.splits.buildRefundPledge(dto.caller, id) };
   }
 
   @Post('deposit/build')

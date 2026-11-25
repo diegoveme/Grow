@@ -36,6 +36,24 @@ export interface ScheduleView {
   runsLeft: number;
 }
 
+interface RawPledge {
+  from: string;
+  beneficiary: string;
+  payee: string;
+  amount: bigint;
+  expires_at: bigint;
+}
+
+/** A conditional remittance, in display units. */
+export interface PledgeView {
+  id: number;
+  from: string;
+  beneficiary: string;
+  payee: string;
+  amount: string;
+  expiresAt: string;
+}
+
 /** ~5 seconds per ledger on Stellar, for allowance lifetimes. */
 const SECONDS_PER_LEDGER = 5;
 /** Keep the allowance alive a day past the last scheduled run. */
@@ -215,6 +233,51 @@ export class SplitsService {
       intervalSecs: Number(raw.interval),
       nextAt: new Date(Number(raw.next_at) * 1000).toISOString(),
       runsLeft: Number(raw.runs_left),
+    };
+  }
+
+  /** Earmark money for `payee`, released by `beneficiary` until `expiresAt`. */
+  buildCreatePledge(
+    from: string,
+    beneficiary: string,
+    payee: string,
+    amount: string,
+    expiresAt: string,
+  ): Promise<string> {
+    const expires = Math.floor(new Date(expiresAt).getTime() / 1000);
+    return this.soroban.buildInvocation(from, this.contractId(), 'create_pledge', [
+      addressArg(from),
+      addressArg(beneficiary),
+      addressArg(payee),
+      i128(toStroops(amount)),
+      u64(expires),
+    ]);
+  }
+
+  /** The beneficiary pays the payee (`caller` must be the beneficiary). */
+  buildReleasePledge(caller: string, id: number): Promise<string> {
+    return this.soroban.buildInvocation(caller, this.contractId(), 'release_pledge', [u64(id)]);
+  }
+
+  /** After expiry, the sender takes it back (`caller` must be the sender). */
+  buildRefundPledge(caller: string, id: number): Promise<string> {
+    return this.soroban.buildInvocation(caller, this.contractId(), 'refund_pledge', [u64(id)]);
+  }
+
+  async getPledge(id: number): Promise<PledgeView | null> {
+    const raw = await this.soroban.readContract<RawPledge | null>(
+      this.contractId(),
+      'pledge',
+      [u64(id)],
+    );
+    if (!raw) return null;
+    return {
+      id,
+      from: raw.from,
+      beneficiary: raw.beneficiary,
+      payee: raw.payee,
+      amount: fromStroops(BigInt(raw.amount), 7),
+      expiresAt: new Date(Number(raw.expires_at) * 1000).toISOString(),
     };
   }
 

@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsISO8601,
   IsInt,
   IsString,
   Max,
@@ -134,6 +135,29 @@ export class ScheduleCallerDto {
   @ApiProperty({ example: 'GANYONE...', description: 'Account that signs and pays the fee' })
   @Matches(STELLAR_ADDRESS_REGEX)
   caller!: string;
+}
+
+export class CreatePledgeDto {
+  @ApiProperty({ example: 'GSENDER...' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  from!: string;
+
+  @ApiProperty({ example: 'GMOM...', description: 'Who decides when to pay it' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  beneficiary!: string;
+
+  @ApiProperty({ example: 'GSCHOOL...', description: 'Who gets paid' })
+  @Matches(STELLAR_ADDRESS_REGEX)
+  payee!: string;
+
+  @ApiProperty({ example: '120.00' })
+  @IsString()
+  @Matches(AMOUNT_REGEX, { message: 'amount must be a decimal with up to 7 decimals' })
+  amount!: string;
+
+  @ApiProperty({ example: '2026-12-31T23:59:59Z', description: 'Release allowed until this time' })
+  @IsISO8601()
+  expiresAt!: string;
 }
 
 export class SubmitDto {
