@@ -199,15 +199,25 @@ export class SplitsService {
       ],
       nowSecs,
     );
+    // The index can lag a schedule created seconds ago, so never approve less
+    // than what is already approved and still needed (old allowance + new).
+    const token = this.config.get('contracts', { infer: true }).usdcToken;
+    const current = BigInt(
+      (await this.soroban.readContract<bigint | number | string>(token, 'allowance', [
+        addressArg(from),
+        addressArg(this.contractId()),
+      ])) ?? 0,
+    );
+    const newNeed = toStroops(amount) * BigInt(runs);
+    const total = current + newNeed > plan.amount ? current + newNeed : plan.amount;
     const { latestLedger } = await this.soroban.server.getHealth();
     const needed =
       Math.ceil((plan.lastRunAt - nowSecs) / SECONDS_PER_LEDGER) + ALLOWANCE_BUFFER_LEDGERS;
     const expiration = latestLedger + Math.min(needed, MAX_ALLOWANCE_LEDGERS);
-    const token = this.config.get('contracts', { infer: true }).usdcToken;
     return this.soroban.buildInvocation(from, token, 'approve', [
       addressArg(from),
       addressArg(this.contractId()),
-      i128(plan.amount),
+      i128(total),
       u32(expiration),
     ]);
   }
