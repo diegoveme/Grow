@@ -1,10 +1,10 @@
-import { Networks } from '@stellar/stellar-sdk';
+import { assertNetworkConfig, NETWORK_DEFAULTS, type StellarNetwork } from './network';
 
 /** Centralised, typed configuration sourced from the environment. */
 export interface AppConfig {
   port: number;
   corsOrigin: string;
-  network: 'TESTNET' | 'PUBLIC';
+  network: StellarNetwork;
   networkPassphrase: string;
   sorobanRpcUrl: string;
   horizonUrl: string;
@@ -48,16 +48,18 @@ export interface AppConfig {
 }
 
 export default (): AppConfig => {
-  const network = (process.env.STELLAR_NETWORK ?? 'TESTNET') as 'TESTNET' | 'PUBLIC';
+  // Refuse to boot with mixed networks or a half-configured mainnet.
+  assertNetworkConfig(process.env);
+  const network = (process.env.STELLAR_NETWORK?.trim() || 'TESTNET') as StellarNetwork;
+  const defaults = NETWORK_DEFAULTS[network];
   return {
     port: Number(process.env.API_PORT ?? 3001),
     corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:3000',
     network,
-    networkPassphrase:
-      process.env.STELLAR_NETWORK_PASSPHRASE ??
-      (network === 'PUBLIC' ? Networks.PUBLIC : Networks.TESTNET),
-    sorobanRpcUrl: process.env.SOROBAN_RPC_URL ?? 'https://soroban-testnet.stellar.org',
-    horizonUrl: process.env.HORIZON_URL ?? 'https://horizon-testnet.stellar.org',
+    networkPassphrase: process.env.STELLAR_NETWORK_PASSPHRASE?.trim() || defaults.passphrase,
+    // On PUBLIC the guard above guarantees SOROBAN_RPC_URL is set.
+    sorobanRpcUrl: process.env.SOROBAN_RPC_URL?.trim() || defaults.sorobanRpcUrl || '',
+    horizonUrl: process.env.HORIZON_URL?.trim() || defaults.horizonUrl,
     anchor: {
       homeDomain: process.env.ANCHOR_HOME_DOMAIN ?? 'testanchor.stellar.org',
       testAsset: process.env.ANCHOR_TEST_ASSET ?? 'SRT',
@@ -66,16 +68,12 @@ export default (): AppConfig => {
       yieldSplitter: process.env.YIELD_SPLITTER_CONTRACT_ID || undefined,
       blendPool: process.env.BLEND_POOL_ID || undefined,
       defindexVault: process.env.DEFINDEX_VAULT_ADDRESS || undefined,
-      usdcToken:
-        process.env.USDC_TOKEN_ID ??
-        'CAQCFVLOBK5GIULPNZRGATJJMIZL5BSP7X5YJVMGCPTUEPFM4AVSRCJU',
+      usdcToken: process.env.USDC_TOKEN_ID?.trim() || defaults.usdcToken,
     },
     usdc: {
       code: process.env.USDC_CODE ?? 'USDC',
-      // Classic issuer whose SAC equals contracts.usdcToken on testnet.
-      issuer:
-        process.env.USDC_ISSUER ??
-        'GATALTGTWIOT6BUDBCZM3Q4OQ4BO2COLOAZ7IYSKPLC2PMSOPPGF5V56',
+      // Classic issuer whose SAC is contracts.usdcToken.
+      issuer: process.env.USDC_ISSUER?.trim() || defaults.usdcIssuer,
     },
     defindexApiKey: process.env.DEFINDEX_API_KEY?.trim() || undefined,
     keeper: {
