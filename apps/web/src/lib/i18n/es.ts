@@ -116,6 +116,7 @@ export const es: Messages = {
     recurringManual: "El primero sale ahora; envía los demás desde la lista de abajo cuando toquen.",
     eachPayment: "Cada pago (USDC)",
     howMany: "Cuántas veces",
+    upTo: (n: number) => `hasta ${n}`,
     frequency: "Frecuencia",
     everyMinute: "Cada minuto",
     everyWeek: "Cada semana",

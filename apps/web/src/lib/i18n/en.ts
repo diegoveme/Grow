@@ -118,6 +118,7 @@ export const en = {
     recurringManual: "The first goes now; send the rest from the list below when they're due.",
     eachPayment: "Each payment (USDC)",
     howMany: "How many times",
+    upTo: (n: number) => `up to ${n}`,
     frequency: "Frequency",
     everyMinute: "Every minute",
     everyWeek: "Every week",

@@ -19,6 +19,9 @@ import { useLocale, useT } from "@/lib/i18n";
 type Every = "minute" | "week" | "month";
 
 const INTERVALS: Record<Every, number> = { minute: 60, week: 7 * 86_400, month: 30 * 86_400 };
+/** The contract keeps the last run within 170 days of the first (one allowance can fund it). */
+const MAX_SPAN_SECS = 170 * 86_400;
+const maxRunsFor = (every: Every) => Math.min(120, Math.floor(MAX_SPAN_SECS / INTERVALS[every]) + 1);
 
 const isDue = (s: ScheduleView) => new Date(s.nextAt).getTime() <= Date.now();
 
@@ -113,10 +116,10 @@ export function RecurringSend() {
           <Field label={t.send.eachPayment}>
             <AmountInput value={amount} onChange={setAmount} />
           </Field>
-          <Field label={t.send.howMany}>
+          <Field label={t.send.howMany} hint={t.send.upTo(maxRunsFor(every))}>
             <TextInput
               value={String(runs)}
-              onChange={(e) => setRuns(Math.max(1, Math.min(120, Number(e.target.value) || 1)))}
+              onChange={(e) => setRuns(Math.max(1, Math.min(maxRunsFor(every), Number(e.target.value) || 1)))}
               inputMode="numeric"
             />
           </Field>
@@ -126,7 +129,10 @@ export function RecurringSend() {
           <Field label={t.send.frequency}>
             <Segmented
               value={every}
-              onChange={setEvery}
+              onChange={(next: Every) => {
+                setEvery(next);
+                setRuns((r) => Math.min(r, maxRunsFor(next)));
+              }}
               accent="oro"
               options={options.map((o) => ({ value: o, label: labels[o] }))}
             />
