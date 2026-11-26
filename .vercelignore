@@ -1,0 +1,15 @@
+# What `vercel deploy` from a local checkout must not upload (git-based
+# deploys only see tracked files anyway). Vercel builds from source.
+.git
+node_modules
+**/node_modules
+**/target
+**/.next
+**/out
+**/dist
+.claude
+.stellar-build
+**/.env
+**/.env.*
+!.env.example
+*.log
