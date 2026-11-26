@@ -197,23 +197,30 @@ async function main(): Promise<void> {
     short(await sendTx('soroban', () => post('/vault/deposit/build', { caller: A, amount: '0.5' }), a)),
   );
 
-  // Recurring: approve + create, then the keeper on the server runs both payments.
-  await step('recurring 2 x 0.1, run by the keeper', async () => {
+  // Recurring: two schedules from the same sender, back to back, so the second
+  // approve must not starve the first (SEP-41 approve replaces the allowance).
+  // The keeper on the server then runs all four payments.
+  await step('2 recurring x 2 runs, both run by the keeper', async () => {
     if (!health.keeper?.enabled) throw new Error('keeper is off on this API');
-    const plan = { from: A, amount: '0.1', intervalSecs: 60, runs: 2 };
-    await sendTx('soroban', () => post('/splits/schedules/approve/build', plan), a);
-    await sendTx('soroban', () => post('/splits/schedules/build', { ...plan, to: B }), a);
-    const created = newest(await get<ScheduleView[]>(`/splits/schedules?address=${A}`));
+    const ids: number[] = [];
+    for (const to of [B, C]) {
+      const plan = { from: A, amount: '0.1', intervalSecs: 60, runs: 2 };
+      await sendTx('soroban', () => post('/splits/schedules/approve/build', plan), a);
+      await sendTx('soroban', () => post('/splits/schedules/build', { ...plan, to }), a);
+      const mine = (await get<ScheduleView[]>(`/splits/schedules?address=${A}`)).filter(
+        (s) => !ids.includes(s.id),
+      );
+      ids.push(newest(mine).id);
+    }
     const started = Date.now();
     while (Date.now() - started < KEEPER_WAIT_SECS * 1000) {
       await pause(15_000);
       const open = await get<ScheduleView[]>(`/splits/schedules?address=${A}`);
-      const mine = open.find((s) => s.id === created.id);
-      if (!mine || mine.runsLeft === 0) {
-        return `schedule #${created.id} done in ${Math.round((Date.now() - started) / 1000)} s`;
+      if (!open.some((s) => ids.includes(s.id) && s.runsLeft > 0)) {
+        return `schedules #${ids.join(', #')} done in ${Math.round((Date.now() - started) / 1000)} s`;
       }
     }
-    throw new Error(`schedule #${created.id} still open after ${KEEPER_WAIT_SECS} s`);
+    throw new Error(`schedules #${ids.join(', #')} still open after ${KEEPER_WAIT_SECS} s`);
   });
 
   await step('stats moved', async () => {
