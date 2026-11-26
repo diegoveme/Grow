@@ -3,22 +3,25 @@
 Grow is a remittance app on Stellar with built-in savings. A sender pays USDC
 through a Soroban contract that splits it by the recipient's own ratio: the
 spendable part lands in the recipient's wallet, the rest is saved for them
-on-chain and only they can withdraw it.
+on-chain and only they can move it. Senders can also pay several people at
+once, schedule recurring remittances, and earmark money for a specific payee.
 
 ```
  Browser (Next.js static export)                    Stellar
  ┌────────────────────────────────┐                ┌──────────────────────────────┐
  │ wallet (Stellar Wallets Kit)   │── signs XDR ──▶│ Soroban: yield_splitter       │
- │ pages: send, savings, vault,   │                │   receive / deposit_savings / │
- │   activity, settings, /stats   │                │   withdraw_savings / set_split│
- └──────────────┬─────────────────┘                │ USDC Stellar Asset Contract   │
+ │ pages: send, receive, vault,   │                │   remittances, batch,         │
+ │   earmarked, activity,         │                │   schedules, pledges, savings │
+ │   settings, /stats             │                │ USDC Stellar Asset Contract   │
+ └──────────────┬─────────────────┘                │ DeFindex vault + Blend pool   │
                 │ JSON (unsigned XDR in/out)        │ Horizon (classic payments)    │
  ┌──────────────▼─────────────────┐                └──────────────┬───────────────┘
  │ API (NestJS)                   │◀── RPC / Horizon ─────────────┘
  │ stellar/  SorobanService,      │
- │           HorizonService       │── DeFindex API (vault txs, APY)
- │ accounts/ splits/ vault/       │── SEP-1/10/24 anchor
- │ remittances/ stats/ anchor/    │── Postgres (Supabase), optional
+ │           HorizonService       │── SEP-1/10/24 anchor
+ │ accounts/ splits/ vault/       │── Postgres (Supabase), optional
+ │ remittances/ stats/ anchor/    │
+ │ keeper/ (runs due schedules)   │
  └────────────────────────────────┘
 ```
 
@@ -30,10 +33,10 @@ on-chain and only they can withdraw it.
   read from the contract and Horizon. The database only keeps an index
   (remittances verified on-chain, contract events) and can be rebuilt.
 - **Minimal custody.** The contract never holds the spendable part. It holds
-  savings per recipient, capped per recipient during the beta, and moves them
-  only back to their owner.
+  savings per recipient and open pledges, both capped per person during the
+  beta, and moves savings only on their owner's signature.
 - **Network-driven.** Testnet and mainnet differ only in environment
-  variables (`.env.example`).
+  variables (`.env.example`); mixing them fails at boot or build.
 
 ## Components
 
@@ -41,20 +44,29 @@ on-chain and only they can withdraw it.
 
 | Module | Responsibility |
 | --- | --- |
-| `lib.rs` | Entry points and the pure `split_amount` |
+| `lib.rs` | Entry points, limits and the pure `split_amount` |
+| `remit.rs` | The one place a remittance moves money: split, cap, transfers, `FundsReceived` |
 | `storage.rs` | Keys, TTL rules and every state read/write |
-| `events.rs` | `SplitSet`, `FundsReceived`, `SavingsDeposited`, `SavingsWithdrawn`, `UserCapSet`, `PausedSet` |
-| `errors.rs` / `types.rs` | Error codes, `Position` and `Config` views |
+| `events.rs` | 15 events: splits, remittances, savings in/out, schedules, pledges, admin actions (`user_cap_set`, `paused_set`, `token_recovered`, `upgraded`) |
+| `errors.rs` / `types.rs` | Error codes; `Payment` (input), `Schedule`, `Pledge`, `Position`, `Config` |
 
 Flows:
 
-1. `receive(from, to, amount)`: sender-signed. Reads `to`'s split, checks the
-   pause switch and the savings cap, transfers the spendable part straight to
-   `to` and the savings part to the contract.
-2. `deposit_savings(user, amount)` / `withdraw_savings(to, amount)`:
-   recipient-signed top-up and withdrawal.
-3. Admin: `set_user_cap`, `set_paused` (never blocks withdrawals),
-   `upgrade` (code swap, same id and storage).
+1. `receive(from, to, amount)` and `send_batch(from, payments)` (up to 10):
+   sender-signed. Each payment is split by its recipient's ratio; the savings
+   part is clamped to the recipient's room under the cap and the rest goes to
+   their wallet.
+2. `create_schedule` / `run_schedule` / `cancel_schedule`: recurring
+   remittances pulled from the sender's token allowance. Anyone (the API's
+   keeper) can run a due schedule; the terms were signed at creation.
+   Interval 1 minute to 92 days, last run at most 170 days after the first.
+3. `create_pledge` / `release_pledge` / `refund_pledge`: earmarked money the
+   beneficiary pays to a fixed payee within 100 days, or the sender takes
+   back after expiry.
+4. `deposit_savings`, `withdraw_savings`, `pay_from_savings`: the recipient's
+   own top-up, withdrawal and payment straight from savings.
+5. Admin: `set_user_cap`, `set_paused` (never blocks exits), `recover_token`
+   (never the USDC), `upgrade` (code swap, same id and storage).
 
 ### API: `apps/api`
 
@@ -62,11 +74,13 @@ Flows:
 | --- | --- |
 | `stellar/` | Network clients (`SorobanService`, `HorizonService`) and pure helpers: ScVal args, memo truncation, contract error messages |
 | `accounts/` | Balances, the activity feed (classic payments and contract transfers), classic payments, trustline, friendbot |
-| `splits/` | Contract reads and unsigned transactions for every user-facing function |
-| `remittances/` | Off-chain timeline; a remittance is stored only after its `receive` tx is verified on-chain |
+| `splits/` | Contract reads and unsigned transactions for every user-facing function; the schedule allowance covers all of a sender's open schedules |
+| `remittances/` | Off-chain timeline; a remittance is stored only after its transaction is verified on-chain |
 | `stats/` | Event indexer (RPC `getEvents` with a persisted cursor) and `GET /api/stats` |
-| `vault/` | DeFindex vault deposit/withdraw by USDC amount, rate |
+| `vault/` | DeFindex vault deposit/withdraw by USDC amount (direct contract calls), Blend rate |
+| `keeper/` | Runs due recurring remittances with a fee-only key |
 | `anchor/` | SEP-10/SEP-24 proxy to the configured anchor |
+| `config/` | Typed config with per-network defaults and the mixed-network guard |
 
 ### Web: `apps/web`
 
@@ -87,14 +101,16 @@ stroops and design tokens, used by both the API and the web.
 
 Postgres tables (created on boot, see `apps/api/src/database/schema.sql`):
 
-- `remittances`: verified `receive` calls, unique by `tx_hash`.
+- `remittances`: verified remittances, unique by `tx_hash`.
 - `contract_events`: indexed contract events, unique by RPC event id.
 - `sync_cursors`: the indexer's RPC cursor per contract.
 
 ## Deployment
 
-- Web: static export, any static host (Vercel today).
-- API: Node 22.12+ (Railway, `railway.json`).
+- Web: static export on Vercel (`grow` for testnet, `grow-mainnet` for
+  mainnet), both building `main`.
+- API: Node 22.12+ on Railway (Railpack; see `railway.json`).
+- Procedure and record: [mainnet.md](mainnet.md).
 - Contract: `bun run deploy` in `packages/contracts`, constructor runs in the
   deploy transaction. Mainnet requires an explicit identity and
   `CONFIRM_MAINNET=yes`.
