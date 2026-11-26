@@ -100,7 +100,13 @@ cd apps/api && API_URL=<testnet API> bun scripts/testnet-regression.ts
 | Date | Network | Contract id | WASM sha256 | Commit | Deploy ledger | Admin (public key) |
 |---|---|---|---|---|---|---|
 | 2026-11-24 | testnet | `CBEQUA2ET4XTZAMDB3ZOB6MUOA2B6ACZ6TV2GCDHFTETKBVG7TMBZCYA` | | | before 5911500 (stats start) | `grow-testnet-admin` |
+| 2026-11-26 | testnet (upgrade) | same | `700613bff894518bc9321dfb2bf25500f1978cd4f991667f1e42baba33de9be6` | `533c46b` (review fixes) | tx `e2e036f3…` | `grow-testnet-admin` |
 | | mainnet | | | | | |
+
+The mainnet upload must produce the same WASM hash as the last testnet
+upgrade (`stellar contract build` from the same commit and toolchain). If it
+differs, the code or the toolchain changed: run the testnet regression on the
+new build first.
 
 ## Operating the contract
 
