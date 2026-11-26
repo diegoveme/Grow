@@ -6,18 +6,19 @@ const SPLITTER_ERRORS: Record<number, string> = {
   2: 'The split must be between 0% and 100%.',
   3: 'The amount must be greater than zero.',
   4: "You don't have that much in savings.",
-  5: 'This would put the recipient over the beta savings cap.',
+  5: 'This would go over the beta limit Grow holds for this person.',
   6: 'New deposits are paused right now. Withdrawals still work.',
   7: 'The savings cap must be greater than zero.',
   8: 'That recurring remittance does not exist (it may have finished or been cancelled).',
   9: 'That recurring remittance is not due yet.',
-  10: 'Recurring remittances need a positive amount, an interval of at least a minute and 1 to 120 runs.',
+  10: 'Recurring remittances need a positive amount, an interval between a minute and 92 days, 1 to 120 runs, and at most 170 days from the first run to the last.',
   11: 'A batch needs between 1 and 10 payments.',
   12: 'That earmarked payment does not exist (it may have been paid or refunded).',
   13: 'That earmarked payment has expired; only the sender can take it back now.',
   14: 'That earmarked payment has not expired yet, so it cannot be refunded.',
-  15: 'An earmarked payment needs a positive amount and an expiry in the future.',
+  15: 'An earmarked payment needs a positive amount and an expiry within the next 100 days.',
   16: 'USDC held for users can never be recovered by the admin.',
+  17: 'Grow itself cannot be the recipient or payee of a payment.',
 };
 
 /** Stellar Asset Contract (USDC) error codes worth explaining to a user. */

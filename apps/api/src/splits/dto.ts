@@ -116,6 +116,7 @@ export class ScheduleTermsDto {
   @ApiProperty({ example: 2592000, description: 'Seconds between runs (min 60)' })
   @IsInt()
   @Min(60)
+  @Max(92 * 86_400)
   intervalSecs!: number;
 
   @ApiProperty({ example: 6, description: 'Number of runs (1 to 120)' })

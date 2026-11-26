@@ -5,7 +5,7 @@ const ids = { splitter: 'CSPLITTER', token: 'CTOKEN' };
 describe('describeFailure', () => {
   it('explains yield_splitter errors', () => {
     const msg = describeFailure([{ contract: 'CSPLITTER', code: 5 }], '', ids);
-    expect(msg).toMatch(/savings cap/);
+    expect(msg).toMatch(/beta limit/);
   });
 
   it('prefers the token error, which is the root cause of a failed transfer', () => {

@@ -11,6 +11,7 @@ import { SorobanService } from '../stellar/soroban.service';
 import { StatsService } from '../stats/stats.service';
 import { addressArg, i128, struct, u32, u64, vec } from '../stellar/scval';
 import type { AppConfig } from '../config/configuration';
+import { scheduleAllowance } from './allowance';
 
 interface RawPosition {
   spendable_bps: number;
@@ -172,8 +173,10 @@ export class SplitsService {
   }
 
   /**
-   * Token approve() so the contract can pull `amount * runs` for a schedule.
-   * The allowance lives until a day after the last run, capped at the
+   * Token approve() so the contract can pull what this schedule needs plus
+   * what the sender's open schedules still need: SEP-41 approve replaces the
+   * allowance, so approving only the new one would starve the others. It
+   * lives until a day after the last run of any of them, capped at the
    * network's max TTL; longer schedules need a fresh approve later.
    */
   async buildScheduleAllowance(
@@ -182,15 +185,29 @@ export class SplitsService {
     runs: number,
     intervalSecs: number,
   ): Promise<string> {
+    const nowSecs = Math.floor(Date.now() / 1000);
+    const open = (await this.schedulesFor(from)).filter((s) => s.from === from && s.runsLeft > 0);
+    const plan = scheduleAllowance(
+      [
+        ...open.map((s) => ({
+          amount: toStroops(s.amount),
+          runs: s.runsLeft,
+          intervalSecs: s.intervalSecs,
+          nextAt: Math.floor(Date.parse(s.nextAt) / 1000),
+        })),
+        { amount: toStroops(amount), runs, intervalSecs, nextAt: nowSecs },
+      ],
+      nowSecs,
+    );
     const { latestLedger } = await this.soroban.server.getHealth();
     const needed =
-      Math.ceil((intervalSecs * runs) / SECONDS_PER_LEDGER) + ALLOWANCE_BUFFER_LEDGERS;
+      Math.ceil((plan.lastRunAt - nowSecs) / SECONDS_PER_LEDGER) + ALLOWANCE_BUFFER_LEDGERS;
     const expiration = latestLedger + Math.min(needed, MAX_ALLOWANCE_LEDGERS);
     const token = this.config.get('contracts', { infer: true }).usdcToken;
     return this.soroban.buildInvocation(from, token, 'approve', [
       addressArg(from),
       addressArg(this.contractId()),
-      i128(toStroops(amount) * BigInt(runs)),
+      i128(plan.amount),
       u32(expiration),
     ]);
   }
