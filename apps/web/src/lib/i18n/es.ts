@@ -272,6 +272,8 @@ export const es: Messages = {
     connectTitle: "Conecta tu wallet",
     connectBody:
       "Conecta una wallet de Stellar (Freighter, xBull, Albedo…) para ver tus saldos, enviar y recibir dinero, y hacer crecer lo que ahorras.",
+    betaBanner: (cap: string | null) =>
+      `Beta en mainnet: es dinero real. Empieza con montos pequeños${cap ? `; Grow guarda hasta ${cap} de ahorro por persona` : ""}.`,
   },
   wallet: {
     connect: "Conectar wallet",

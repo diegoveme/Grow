@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { BetaBanner } from "./beta-banner";
 import { MobileNav, Sidebar } from "./sidebar";
 import { CursorMolecules } from "@/components/cursor-molecules";
 import { ConnectButton } from "@/components/connect-button";
@@ -38,6 +39,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
           <ConnectButton />
         </header>
+
+        <BetaBanner />
 
         <main className="flex-1 px-5 pb-28 pt-6 md:px-8 md:pb-12 md:pt-8">{children}</main>
       </div>
