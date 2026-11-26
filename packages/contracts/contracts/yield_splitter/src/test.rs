@@ -229,15 +229,33 @@ fn position_reports_full_state() {
 // ── Beta guardrails ─────────────────────────────────────────────────────────
 
 #[test]
-#[should_panic(expected = "Error(Contract, #5)")]
-fn savings_over_the_cap_are_rejected() {
+fn savings_over_the_cap_go_to_the_wallet() {
     let h = setup();
     let (sender, recipient) = h.parties(10_000);
     h.client.set_split(&recipient, &0);
+    h.client.receive(&sender, &recipient, &(CAP - 100));
 
+    // Only 100 of room left: the rest of this all-savings remittance is paid out.
+    let (spendable, savings) = h.client.receive(&sender, &recipient, &300);
+
+    assert_eq!((spendable, savings), (200, 100));
+    assert_eq!(h.client.savings(&recipient), CAP);
+    assert_eq!(h.token.balance(&recipient), 200);
+}
+
+#[test]
+fn a_lowered_cap_never_blocks_a_remittance() {
+    let h = setup();
+    let (sender, recipient) = h.parties(10_000);
+    h.client.set_split(&recipient, &0);
     h.client.receive(&sender, &recipient, &CAP);
-    // One more unit of savings would exceed the cap.
-    h.client.receive(&sender, &recipient, &1);
+    h.client.set_user_cap(&100);
+
+    // Savings are already above the new cap, so all of it goes to the wallet.
+    let (spendable, savings) = h.client.receive(&sender, &recipient, &50);
+
+    assert_eq!((spendable, savings), (50, 0));
+    assert_eq!(h.client.savings(&recipient), CAP);
 }
 
 #[test]
@@ -322,7 +340,9 @@ fn config_reports_settings() {
 fn constructor_rejects_a_non_positive_cap() {
     let env = Env::default();
     let admin = Address::generate(&env);
-    let token = env.register_stellar_asset_contract_v2(admin.clone()).address();
+    let token = env
+        .register_stellar_asset_contract_v2(admin.clone())
+        .address();
     env.register(YieldSplitter, (admin, token, 0_i128));
 }
 
@@ -361,10 +381,11 @@ fn emptied_savings_are_removed_from_storage() {
 #[test]
 fn split_rounding_favors_savings() {
     // 70% of 3 is 2.1: spendable is floored, savings keeps the remainder.
-    assert_eq!(split_amount(3, 7000), (2, 1));
-    assert_eq!(split_amount(1, 9999), (0, 1));
-    assert_eq!(split_amount(10, 10_000), (10, 0));
-    assert_eq!(split_amount(10, 0), (0, 10));
+    assert_eq!(split_amount(3, 7000), Some((2, 1)));
+    assert_eq!(split_amount(1, 9999), Some((0, 1)));
+    assert_eq!(split_amount(10, 10_000), Some((10, 0)));
+    assert_eq!(split_amount(10, 0), Some((0, 10)));
+    assert_eq!(split_amount(i128::MAX, 7000), None);
 }
 
 // ── deposit_savings ─────────────────────────────────────────────────────────
@@ -503,7 +524,10 @@ fn pay_from_savings_still_works_while_paused() {
 // ── send_batch ──────────────────────────────────────────────────────────────
 
 fn pay(to: &Address, amount: i128) -> Payment {
-    Payment { to: to.clone(), amount }
+    Payment {
+        to: to.clone(),
+        amount,
+    }
 }
 
 #[test]
@@ -513,9 +537,10 @@ fn send_batch_splits_each_payment_by_its_recipients_ratio() {
     let sister = Address::generate(&h.env);
     h.client.set_split(&sister, &10_000); // sister keeps everything spendable
 
-    let total = h
-        .client
-        .send_batch(&sender, &soroban_sdk::vec![&h.env, pay(&mom, 200), pay(&sister, 100)]);
+    let total = h.client.send_batch(
+        &sender,
+        &soroban_sdk::vec![&h.env, pay(&mom, 200), pay(&sister, 100)],
+    );
 
     assert_eq!(total, 300);
     assert_eq!(h.token.balance(&mom), 140);
@@ -530,8 +555,10 @@ fn send_batch_needs_only_the_senders_signature() {
     let h = setup();
     let (sender, mom) = h.parties(1_000);
     let sister = Address::generate(&h.env);
-    h.client
-        .send_batch(&sender, &soroban_sdk::vec![&h.env, pay(&mom, 10), pay(&sister, 10)]);
+    h.client.send_batch(
+        &sender,
+        &soroban_sdk::vec![&h.env, pay(&mom, 10), pay(&sister, 10)],
+    );
 
     let auths = h.env.auths();
     assert_eq!(auths.len(), 1);
@@ -564,8 +591,10 @@ fn send_batch_is_all_or_nothing() {
     let h = setup();
     let (sender, mom) = h.parties(1_000);
     // The second payment is invalid, so the first one must not land either.
-    h.client
-        .send_batch(&sender, &soroban_sdk::vec![&h.env, pay(&mom, 100), pay(&mom, 0)]);
+    h.client.send_batch(
+        &sender,
+        &soroban_sdk::vec![&h.env, pay(&mom, 100), pay(&mom, 0)],
+    );
 }
 
 // ── recurring remittances ───────────────────────────────────────────────────
@@ -576,7 +605,8 @@ const HOUR: u64 = 3_600;
 fn approved_sender(h: &Harness, funds: i128, allowance: i128) -> Address {
     let sender = Address::generate(&h.env);
     h.token_admin.mint(&sender, &funds);
-    h.token.approve(&sender, &h.client.address, &allowance, &10_000);
+    h.token
+        .approve(&sender, &h.client.address, &allowance, &10_000);
     sender
 }
 
@@ -668,7 +698,8 @@ fn schedule_interval_has_a_floor() {
     let h = setup();
     let sender = Address::generate(&h.env);
     let mom = Address::generate(&h.env);
-    h.client.create_schedule(&sender, &mom, &100, &(MIN_INTERVAL - 1), &3);
+    h.client
+        .create_schedule(&sender, &mom, &100, &(MIN_INTERVAL - 1), &3);
 }
 
 #[test]
@@ -701,8 +732,15 @@ fn pledged(h: &Harness) -> PledgeSetup {
     let school = Address::generate(&h.env);
     h.token_admin.mint(&sender, &1_000);
     let expires = h.env.ledger().timestamp() + 7 * DAY;
-    let id = h.client.create_pledge(&sender, &mom, &school, &300, &expires);
-    PledgeSetup { sender, mom, school, id }
+    let id = h
+        .client
+        .create_pledge(&sender, &mom, &school, &300, &expires);
+    PledgeSetup {
+        sender,
+        mom,
+        school,
+        id,
+    }
 }
 
 #[test]
@@ -775,7 +813,8 @@ fn a_pledge_is_capped_like_savings() {
     let sender = Address::generate(&h.env);
     let mom = Address::generate(&h.env);
     h.token_admin.mint(&sender, &5_000);
-    h.client.create_pledge(&sender, &mom, &mom, &(CAP + 1), &DAY);
+    h.client
+        .create_pledge(&sender, &mom, &mom, &(CAP + 1), &DAY);
 }
 
 #[test]
@@ -785,7 +824,8 @@ fn a_pledge_must_expire_in_the_future() {
     let sender = Address::generate(&h.env);
     let mom = Address::generate(&h.env);
     h.token_admin.mint(&sender, &100);
-    h.client.create_pledge(&sender, &mom, &mom, &100, &h.env.ledger().timestamp());
+    h.client
+        .create_pledge(&sender, &mom, &mom, &100, &h.env.ledger().timestamp());
 }
 
 #[test]
@@ -806,7 +846,9 @@ fn the_admin_returns_a_token_sent_by_mistake() {
     let h = setup();
     let other = StellarAssetClient::new(
         &h.env,
-        &h.env.register_stellar_asset_contract_v2(h.admin.clone()).address(),
+        &h.env
+            .register_stellar_asset_contract_v2(h.admin.clone())
+            .address(),
     );
     let other_token = token::Client::new(&h.env, &other.address);
     let sender = Address::generate(&h.env);
@@ -828,6 +870,160 @@ fn recover_token_can_never_touch_users_usdc() {
     h.client.recover_token(&h.token.address, &h.admin, &60);
 }
 
+// ── Mainnet review fixes ────────────────────────────────────────────────────
+
+#[test]
+fn a_capped_recipient_does_not_sink_a_batch() {
+    let h = setup();
+    let (sender, full) = h.parties(10_000);
+    let other = Address::generate(&h.env);
+    h.client.set_split(&full, &0);
+    h.client.receive(&sender, &full, &CAP);
+
+    let total = h.client.send_batch(
+        &sender,
+        &soroban_sdk::vec![&h.env, pay(&full, 100), pay(&other, 100)],
+    );
+
+    assert_eq!(total, 200);
+    assert_eq!(h.token.balance(&full), 100);
+    assert_eq!(h.client.savings(&other), 30);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #3)")]
+fn an_amount_too_large_to_split_is_a_typed_error() {
+    let h = setup();
+    let (sender, recipient) = h.parties(10);
+    h.client.receive(&sender, &recipient, &i128::MAX);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #17)")]
+fn the_contract_cannot_receive_a_remittance() {
+    let h = setup();
+    let (sender, _) = h.parties(100);
+    h.client.receive(&sender, &h.client.address, &100);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #17)")]
+fn savings_cannot_be_paid_to_the_contract() {
+    let h = setup();
+    let (sender, recipient) = h.parties(200);
+    h.client.receive(&sender, &recipient, &200);
+    h.client
+        .pay_from_savings(&recipient, &h.client.address, &10);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #17)")]
+fn the_contract_cannot_be_a_pledge_payee() {
+    let h = setup();
+    let sender = Address::generate(&h.env);
+    let mom = Address::generate(&h.env);
+    h.token_admin.mint(&sender, &100);
+    h.client
+        .create_pledge(&sender, &mom, &h.client.address, &100, &DAY);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #5)")]
+fn open_pledges_for_one_person_are_capped_together() {
+    let h = setup();
+    let sender = Address::generate(&h.env);
+    let mom = Address::generate(&h.env);
+    let school = Address::generate(&h.env);
+    h.token_admin.mint(&sender, &5_000);
+    h.client.create_pledge(&sender, &mom, &school, &600, &DAY);
+    h.client.create_pledge(&sender, &mom, &school, &401, &DAY);
+}
+
+#[test]
+fn settling_a_pledge_frees_room_under_the_cap() {
+    let h = setup();
+    let sender = Address::generate(&h.env);
+    let mom = Address::generate(&h.env);
+    let school = Address::generate(&h.env);
+    h.token_admin.mint(&sender, &5_000);
+    let first = h.client.create_pledge(&sender, &mom, &school, &CAP, &DAY);
+
+    h.client.release_pledge(&first);
+    let second = h
+        .client
+        .create_pledge(&sender, &mom, &school, &CAP, &(2 * DAY));
+    advance(&h, 3 * DAY);
+    h.client.refund_pledge(&second);
+    h.client
+        .create_pledge(&sender, &mom, &school, &CAP, &(10 * DAY));
+
+    assert_eq!(h.token.balance(&school), CAP);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #15)")]
+fn a_pledge_cannot_stay_open_past_100_days() {
+    let h = setup();
+    let sender = Address::generate(&h.env);
+    let mom = Address::generate(&h.env);
+    h.token_admin.mint(&sender, &100);
+    let expires = h.env.ledger().timestamp() + MAX_PLEDGE_DURATION + 1;
+    h.client.create_pledge(&sender, &mom, &mom, &100, &expires);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #10)")]
+fn schedule_interval_has_a_ceiling() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 1_000);
+    let mom = Address::generate(&h.env);
+    h.client
+        .create_schedule(&sender, &mom, &10, &(MAX_INTERVAL + 1), &1);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #10)")]
+fn a_schedule_cannot_outlive_one_allowance() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 1_000);
+    let mom = Address::generate(&h.env);
+    // 26 weekly runs span 175 days, past the 170-day limit.
+    h.client
+        .create_schedule(&sender, &mom, &10, &(7 * DAY), &26);
+}
+
+#[test]
+fn a_weekly_schedule_of_25_runs_fits() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 1_000);
+    let mom = Address::generate(&h.env);
+    // 25 weekly runs span 168 days.
+    let id = h
+        .client
+        .create_schedule(&sender, &mom, &10, &(7 * DAY), &25);
+    assert_eq!(h.client.schedule(&id).unwrap().runs_left, 25);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #6)")]
+fn schedules_cannot_be_created_while_paused() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 1_000);
+    let mom = Address::generate(&h.env);
+    h.client.set_paused(&true);
+    h.client
+        .create_schedule(&sender, &mom, &10, &MIN_INTERVAL, &2);
+}
+
+#[test]
+#[should_panic(expected = "Error(Contract, #17)")]
+fn the_contract_cannot_be_a_schedule_recipient() {
+    let h = setup();
+    let sender = approved_sender(&h, 1_000, 1_000);
+    h.client
+        .create_schedule(&sender, &h.client.address, &10, &MIN_INTERVAL, &2);
+}
+
 // ── upgrade ─────────────────────────────────────────────────────────────────
 //
 // Needs real wasm to swap in, so it runs with the `upgrade-test` feature after
@@ -838,8 +1034,7 @@ mod upgrade {
     use super::*;
     use soroban_sdk::{testutils::MockAuth, testutils::MockAuthInvoke, IntoVal};
 
-    const WASM: &[u8] =
-        include_bytes!("../../../target/wasm32v1-none/release/yield_splitter.wasm");
+    const WASM: &[u8] = include_bytes!("../../../target/wasm32v1-none/release/yield_splitter.wasm");
 
     #[test]
     fn admin_can_upgrade_and_state_survives() {
@@ -854,6 +1049,41 @@ mod upgrade {
         // The swapped-in code still sees the same settings and balances.
         assert_eq!(h.client.config().admin, h.admin);
         assert_eq!(h.client.savings(&recipient), 60);
+    }
+
+    #[test]
+    fn upgrade_emits_an_event() {
+        let h = setup();
+        let hash = h.env.deployer().upload_contract_wasm(WASM);
+        h.client.upgrade(&hash);
+        assert!(!h.env.events().all().is_empty());
+    }
+
+    /// A full batch to distinct recipients, on the real wasm, stays well
+    /// inside mainnet's per-transaction CPU limit (100M instructions).
+    #[test]
+    fn a_full_batch_fits_the_mainnet_budget() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let admin = Address::generate(&env);
+        let sac = env.register_stellar_asset_contract_v2(admin.clone());
+        let token_admin = StellarAssetClient::new(&env, &sac.address());
+        let id = env.register(WASM, (admin, sac.address(), CAP));
+        let client = YieldSplitterClient::new(&env, &id);
+        let sender = Address::generate(&env);
+        token_admin.mint(&sender, &10_000);
+        let mut payments = Vec::new(&env);
+        for _ in 0..MAX_BATCH {
+            payments.push_back(pay(&Address::generate(&env), 100));
+        }
+
+        env.cost_estimate().budget().reset_default();
+        assert_eq!(client.send_batch(&sender, &payments), 1_000);
+        let cpu = env.cost_estimate().budget().cpu_instruction_cost();
+        assert!(
+            cpu < 100_000_000,
+            "batch of {MAX_BATCH} used {cpu} instructions"
+        );
     }
 
     #[test]

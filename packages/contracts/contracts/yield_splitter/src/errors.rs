@@ -23,4 +23,6 @@ pub enum Error {
     PledgeNotExpired = 14,
     InvalidPledge = 15,
     RecoverForbidden = 16,
+    /// The contract itself cannot be a recipient, payee or beneficiary.
+    InvalidRecipient = 17,
 }

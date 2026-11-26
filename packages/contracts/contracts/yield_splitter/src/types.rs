@@ -1,4 +1,4 @@
-//! Values returned by the contract's views.
+//! Values the contract takes and returns.
 
 use soroban_sdk::{contracttype, Address};
 

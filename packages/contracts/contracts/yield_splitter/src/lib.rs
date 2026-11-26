@@ -7,10 +7,11 @@
 //! - the **spendable** portion is transferred straight to the recipient's
 //!   wallet, so it is usable (and cash-out ready) immediately;
 //! - the **savings** portion is held by this contract on the recipient's
-//!   behalf. Only the recipient can withdraw it, at any time.
+//!   behalf. Only the recipient can move it, at any time.
 //!
-//! The contract never moves a recipient's savings anywhere except back to that
-//! recipient. Routing savings into a vault (DeFindex, Blend) is done from the
+//! Savings only leave on the recipient's signature: back to their wallet
+//! (`withdraw_savings`) or straight to someone they pay (`pay_from_savings`).
+//! Routing savings into a vault (DeFindex, Blend) is done from the
 //! recipient's own wallet, outside this contract.
 //!
 //! Recipients can also top up savings from their own wallet
@@ -22,9 +23,14 @@
 //! for a specific payee that the family releases (`create_pledge` /
 //! `release_pledge`, with `refund_pledge` if it goes unused).
 //!
-//! Beta guardrails: savings per recipient are capped (`user_cap`), and the
-//! admin can pause new deposits. Withdrawals always stay open. The admin can
-//! also upgrade the contract code to ship fixes without migrating funds.
+//! Beta guardrails: savings per recipient are capped (`user_cap`; anything
+//! above goes to their wallet), open pledges per beneficiary share the same
+//! cap, and the admin can pause new money in. Exits always stay open.
+//!
+//! Trust assumption: the admin can upgrade the contract code (to ship fixes
+//! without migrating funds). Upgraded code could do anything this contract
+//! can, so the admin key is as sensitive as the funds; every upgrade emits
+//! an `upgraded` event.
 //!
 //! Layout: `errors` (codes), `types` (view structs), `events`, `storage`
 //! (keys, TTL and every state read/write) and the entry points below.
@@ -42,7 +48,7 @@ pub use types::{Config, Payment, Pledge, Position, Schedule};
 use events::{
     PausedSet, PledgeCreated, PledgeRefunded, PledgeReleased, SavingsDeposited, SavingsSpent,
     SavingsWithdrawn, ScheduleCancelled, ScheduleCreated, ScheduleRun, SplitSet, TokenRecovered,
-    UserCapSet,
+    Upgraded, UserCapSet,
 };
 use remit::{remit, Pull};
 use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, BytesN, Env, Vec};
@@ -55,6 +61,13 @@ pub const MAX_BATCH: u32 = 10;
 pub const MIN_INTERVAL: u64 = 60;
 /// Most runs a single schedule may have.
 pub const MAX_RUNS: u32 = 120;
+/// Longest interval between runs (92 days), inside the schedule entry's TTL.
+pub const MAX_INTERVAL: u64 = 92 * 86_400;
+/// Longest time from the first run to the last (170 days): the token
+/// allowance funding it cannot outlive the network's max entry TTL.
+pub const MAX_SCHEDULE_SPAN: u64 = 170 * 86_400;
+/// Longest a pledge may stay open (100 days), inside the pledge entry's TTL.
+pub const MAX_PLEDGE_DURATION: u64 = 100 * 86_400;
 
 #[contract]
 pub struct YieldSplitter;
@@ -72,8 +85,9 @@ impl YieldSplitter {
 
     // ── Admin ───────────────────────────────────────────────────────────────
 
-    /// Change the per-recipient savings cap. Admin only. Lowering it below a
-    /// recipient's current savings only blocks new deposits for them.
+    /// Change the per-person cap. Admin only. Lowering it below someone's
+    /// savings never blocks remittances to them: new savings go to their
+    /// wallet until they are back under it.
     pub fn set_user_cap(env: Env, user_cap: i128) {
         storage::admin(&env).require_auth();
         if user_cap <= 0 {
@@ -83,7 +97,7 @@ impl YieldSplitter {
         UserCapSet { user_cap }.publish(&env);
     }
 
-    /// Pause or resume new deposits. Admin only. Withdrawals keep working.
+    /// Pause or resume new money in. Admin only. Exits keep working.
     pub fn set_paused(env: Env, paused: bool) {
         storage::admin(&env).require_auth();
         storage::set_paused(&env, paused);
@@ -109,6 +123,10 @@ impl YieldSplitter {
     pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
         storage::admin(&env).require_auth();
         storage::bump_instance(&env);
+        Upgraded {
+            new_wasm_hash: new_wasm_hash.clone(),
+        }
+        .publish(&env);
         env.deployer().update_current_contract_wasm(new_wasm_hash);
     }
 
@@ -164,7 +182,9 @@ impl YieldSplitter {
         let mut total: i128 = 0;
         for payment in payments.iter() {
             remit(&env, &from, &payment.to, payment.amount, Pull::Signed);
-            total += payment.amount;
+            total = total
+                .checked_add(payment.amount)
+                .unwrap_or_else(|| panic_with_error!(&env, Error::InvalidAmount));
         }
         storage::bump_instance(&env);
         total
@@ -175,8 +195,10 @@ impl YieldSplitter {
     /// Set up a recurring remittance of `amount` to `to` every `interval`
     /// seconds, `runs` times. The first run is due right away. Funds are
     /// pulled from `from`'s allowance on the token, so `from` must approve
-    /// this contract for at least `amount * runs` (the API builds both).
-    /// Returns the schedule id.
+    /// this contract for what all their open schedules still need (SEP-41
+    /// approve replaces the allowance; the API sums it). The interval is 1
+    /// minute to 92 days and the last run is at most 170 days after the
+    /// first, so one allowance can fund it. Returns the schedule id.
     pub fn create_schedule(
         env: Env,
         from: Address,
@@ -186,7 +208,20 @@ impl YieldSplitter {
         runs: u32,
     ) -> u64 {
         from.require_auth();
-        if amount <= 0 || interval < MIN_INTERVAL || runs == 0 || runs > MAX_RUNS {
+        if storage::is_paused(&env) {
+            panic_with_error!(&env, Error::Paused);
+        }
+        if to == env.current_contract_address() {
+            panic_with_error!(&env, Error::InvalidRecipient);
+        }
+        if amount <= 0
+            || interval < MIN_INTERVAL
+            || interval > MAX_INTERVAL
+            || runs == 0
+            || runs > MAX_RUNS
+            || interval * u64::from(runs - 1) > MAX_SCHEDULE_SPAN
+            || split_amount(amount, BPS_DENOMINATOR).is_none()
+        {
             panic_with_error!(&env, Error::InvalidSchedule);
         }
         let id = storage::next_schedule_id(&env);
@@ -230,13 +265,21 @@ impl YieldSplitter {
             panic_with_error!(&env, Error::ScheduleNotDue);
         }
 
-        let result = remit(&env, &schedule.from, &schedule.to, schedule.amount, Pull::Allowance);
+        let result = remit(
+            &env,
+            &schedule.from,
+            &schedule.to,
+            schedule.amount,
+            Pull::Allowance,
+        );
 
         schedule.runs_left -= 1;
         if schedule.runs_left == 0 {
             storage::remove_schedule(&env, id);
         } else {
-            schedule.next_at = now + schedule.interval;
+            schedule.next_at = now
+                .checked_add(schedule.interval)
+                .unwrap_or_else(|| panic_with_error!(&env, Error::InvalidSchedule));
             storage::set_schedule(&env, id, &schedule);
         }
         storage::bump_instance(&env);
@@ -254,6 +297,7 @@ impl YieldSplitter {
             .unwrap_or_else(|| panic_with_error!(&env, Error::ScheduleNotFound));
         schedule.from.require_auth();
         storage::remove_schedule(&env, id);
+        storage::bump_instance(&env);
         ScheduleCancelled { id }.publish(&env);
     }
 
@@ -261,8 +305,9 @@ impl YieldSplitter {
 
     /// Set aside `amount` for `beneficiary` to spend only on `payee` (school
     /// fees, a clinic, rent). The funds leave the sender now and wait here,
-    /// apart from anyone's savings. Capped like savings during the beta.
-    /// Returns the pledge id.
+    /// apart from anyone's savings. It can stay open up to 100 days, and
+    /// during the beta the open pledges one beneficiary decides on are capped
+    /// at the per-person cap. Returns the pledge id.
     pub fn create_pledge(
         env: Env,
         from: Address,
@@ -275,17 +320,23 @@ impl YieldSplitter {
         if storage::is_paused(&env) {
             panic_with_error!(&env, Error::Paused);
         }
-        if amount <= 0 || expires_at <= env.ledger().timestamp() {
+        let now = env.ledger().timestamp();
+        if amount <= 0 || expires_at <= now || expires_at - now > MAX_PLEDGE_DURATION {
             panic_with_error!(&env, Error::InvalidPledge);
         }
-        if amount > storage::user_cap(&env) {
+        let here = env.current_contract_address();
+        if beneficiary == here || payee == here {
+            panic_with_error!(&env, Error::InvalidRecipient);
+        }
+        let open = storage::pledged_for(&env, &beneficiary);
+        if open
+            .checked_add(amount)
+            .map_or(true, |total| total > storage::user_cap(&env))
+        {
             panic_with_error!(&env, Error::CapExceeded);
         }
-        token::Client::new(&env, &storage::token(&env)).transfer(
-            &from,
-            &env.current_contract_address(),
-            &amount,
-        );
+        token::Client::new(&env, &storage::token(&env)).transfer(&from, &here, &amount);
+        storage::add_pledged(&env, &beneficiary, amount);
         let id = storage::next_pledge_id(&env);
         storage::set_pledge(
             &env,
@@ -321,6 +372,7 @@ impl YieldSplitter {
             panic_with_error!(&env, Error::PledgeExpired);
         }
         storage::remove_pledge(&env, id);
+        storage::add_pledged(&env, &pledge.beneficiary, -pledge.amount);
         token::Client::new(&env, &storage::token(&env)).transfer(
             &env.current_contract_address(),
             &pledge.payee,
@@ -345,6 +397,7 @@ impl YieldSplitter {
             panic_with_error!(&env, Error::PledgeNotExpired);
         }
         storage::remove_pledge(&env, id);
+        storage::add_pledged(&env, &pledge.beneficiary, -pledge.amount);
         token::Client::new(&env, &storage::token(&env)).transfer(
             &env.current_contract_address(),
             &pledge.from,
@@ -380,7 +433,10 @@ impl YieldSplitter {
         if amount <= 0 {
             panic_with_error!(&env, Error::InvalidAmount);
         }
-        if storage::savings(&env, &user) + amount > storage::user_cap(&env) {
+        if storage::savings(&env, &user)
+            .checked_add(amount)
+            .map_or(true, |total| total > storage::user_cap(&env))
+        {
             panic_with_error!(&env, Error::CapExceeded);
         }
         token::Client::new(&env, &storage::token(&env)).transfer(
@@ -433,6 +489,9 @@ impl YieldSplitter {
         if amount <= 0 {
             panic_with_error!(&env, Error::InvalidAmount);
         }
+        if to == env.current_contract_address() {
+            panic_with_error!(&env, Error::InvalidRecipient);
+        }
         if amount > storage::savings(&env, &user) {
             panic_with_error!(&env, Error::InsufficientSavings);
         }
@@ -476,11 +535,12 @@ impl YieldSplitter {
     }
 }
 
-/// Split `amount` into `(spendable, savings)` for a spendable ratio in bps.
-/// Rounding favors savings: spendable is floored, savings takes the remainder.
-pub(crate) fn split_amount(amount: i128, spendable_bps: u32) -> (i128, i128) {
-    let spendable = amount * i128::from(spendable_bps) / i128::from(BPS_DENOMINATOR);
-    (spendable, amount - spendable)
+/// Split `amount` into `(spendable, savings)` for a spendable ratio in bps,
+/// or `None` if the amount is too large to split. Rounding favors savings:
+/// spendable is floored, savings takes the remainder.
+pub(crate) fn split_amount(amount: i128, spendable_bps: u32) -> Option<(i128, i128)> {
+    let spendable = amount.checked_mul(i128::from(spendable_bps))? / i128::from(BPS_DENOMINATOR);
+    Some((spendable, amount - spendable))
 }
 
 #[cfg(test)]

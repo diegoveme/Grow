@@ -1,7 +1,7 @@
 //! Events the contract publishes. Off-chain indexers and the API's activity
 //! feed rely on these shapes.
 
-use soroban_sdk::{contractevent, Address};
+use soroban_sdk::{contractevent, Address, BytesN};
 
 /// A recipient chose (or changed) their spendable/savings ratio.
 #[contractevent]
@@ -140,4 +140,11 @@ pub struct UserCapSet {
 #[derive(Clone)]
 pub struct PausedSet {
     pub paused: bool,
+}
+
+/// The admin replaced the contract code (same id and storage).
+#[contractevent]
+#[derive(Clone)]
+pub struct Upgraded {
+    pub new_wasm_hash: BytesN<32>,
 }

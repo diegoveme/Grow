@@ -18,18 +18,27 @@ pub enum Pull {
 }
 
 /// Split `amount` for `to`, move the funds and emit `FundsReceived`.
-/// Caller checks auth and pause; this checks amount and the savings cap.
+/// Callers check pause, and auth where the sender signs (`run_schedule`
+/// relies on the allowance instead); this checks the amount and the cap.
 pub fn remit(env: &Env, from: &Address, to: &Address, amount: i128, pull: Pull) -> (i128, i128) {
     if amount <= 0 {
         panic_with_error!(env, Error::InvalidAmount);
     }
-    let (spendable, savings) = split_amount(amount, storage::split(env, to));
-    if storage::savings(env, to) + savings > storage::user_cap(env) {
-        panic_with_error!(env, Error::CapExceeded);
+    let here = env.current_contract_address();
+    if *to == here {
+        panic_with_error!(env, Error::InvalidRecipient);
+    }
+    let (mut spendable, mut savings) = split_amount(amount, storage::split(env, to))
+        .unwrap_or_else(|| panic_with_error!(env, Error::InvalidAmount));
+    // Beta cap: savings beyond the recipient's room go to their wallet, so a
+    // full (or lowered) cap never blocks a remittance or a whole batch.
+    let room = (storage::user_cap(env) - storage::savings(env, to)).max(0);
+    if savings > room {
+        spendable += savings - room;
+        savings = room;
     }
 
     let token = token::Client::new(env, &storage::token(env));
-    let here = env.current_contract_address();
     let move_funds = |dest: &Address, value: i128| match pull {
         Pull::Signed => token.transfer(from, dest, &value),
         Pull::Allowance => token.transfer_from(&here, from, dest, &value),

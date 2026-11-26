@@ -24,9 +24,11 @@ pub enum DataKey {
     Admin,
     /// USDC token contract address used for transfers.
     Token,
-    /// Max savings (token base units) the contract may hold for one recipient.
+    /// Beta cap per person, in token base units: savings above it go to the
+    /// recipient's wallet, and open pledges they decide on cannot exceed it.
     UserCap,
-    /// When true, `receive` is rejected. Withdrawals are never paused.
+    /// When true, new money in is rejected (remittances, batches, schedules,
+    /// pledges, deposits). Exits are never paused.
     Paused,
     /// Per-recipient spendable ratio in basis points.
     Split(Address),
@@ -40,6 +42,8 @@ pub enum DataKey {
     NextPledgeId,
     /// A conditional remittance by id.
     Pledge(u64),
+    /// USDC in open pledges a beneficiary decides on (checked against the cap).
+    PledgedFor(Address),
 }
 
 // ── Instance settings ───────────────────────────────────────────────────────
@@ -71,7 +75,10 @@ pub fn set_user_cap(env: &Env, user_cap: i128) {
 }
 
 pub fn is_paused(env: &Env) -> bool {
-    env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    env.storage()
+        .instance()
+        .get(&DataKey::Paused)
+        .unwrap_or(false)
 }
 
 pub fn set_paused(env: &Env, paused: bool) {
@@ -127,7 +134,9 @@ pub fn savings(env: &Env, user: &Address) -> i128 {
 /// emptied balance is removed instead of paying rent for a zero.
 pub fn add_savings(env: &Env, user: &Address, delta: i128) -> i128 {
     let key = DataKey::Savings(user.clone());
-    let updated = savings(env, user) + delta;
+    let updated = savings(env, user)
+        .checked_add(delta)
+        .unwrap_or_else(|| panic_with_error!(env, Error::InvalidAmount));
     if updated == 0 {
         env.storage().persistent().remove(&key);
     } else {
@@ -141,8 +150,14 @@ pub fn add_savings(env: &Env, user: &Address, delta: i128) -> i128 {
 
 /// Reserve the next schedule id.
 pub fn next_schedule_id(env: &Env) -> u64 {
-    let id: u64 = env.storage().instance().get(&DataKey::NextScheduleId).unwrap_or(1);
-    env.storage().instance().set(&DataKey::NextScheduleId, &(id + 1));
+    let id: u64 = env
+        .storage()
+        .instance()
+        .get(&DataKey::NextScheduleId)
+        .unwrap_or(1);
+    env.storage()
+        .instance()
+        .set(&DataKey::NextScheduleId, &(id + 1));
     id
 }
 
@@ -163,8 +178,14 @@ pub fn remove_schedule(env: &Env, id: u64) {
 // ── Conditional remittances ─────────────────────────────────────────────────
 
 pub fn next_pledge_id(env: &Env) -> u64 {
-    let id: u64 = env.storage().instance().get(&DataKey::NextPledgeId).unwrap_or(1);
-    env.storage().instance().set(&DataKey::NextPledgeId, &(id + 1));
+    let id: u64 = env
+        .storage()
+        .instance()
+        .get(&DataKey::NextPledgeId)
+        .unwrap_or(1);
+    env.storage()
+        .instance()
+        .set(&DataKey::NextPledgeId, &(id + 1));
     id
 }
 
@@ -180,6 +201,29 @@ pub fn set_pledge(env: &Env, id: u64, pledge: &Pledge) {
 
 pub fn remove_pledge(env: &Env, id: u64) {
     env.storage().persistent().remove(&DataKey::Pledge(id));
+}
+
+pub fn pledged_for(env: &Env, user: &Address) -> i128 {
+    env.storage()
+        .persistent()
+        .get(&DataKey::PledgedFor(user.clone()))
+        .unwrap_or(0)
+}
+
+/// Adjust a beneficiary's open pledge total. Floors at zero, since pledges
+/// opened before this total existed were never counted in it.
+pub fn add_pledged(env: &Env, user: &Address, delta: i128) {
+    let key = DataKey::PledgedFor(user.clone());
+    let updated = pledged_for(env, user)
+        .checked_add(delta)
+        .unwrap_or_else(|| panic_with_error!(env, Error::InvalidAmount))
+        .max(0);
+    if updated == 0 {
+        env.storage().persistent().remove(&key);
+    } else {
+        env.storage().persistent().set(&key, &updated);
+        bump_user(env, &key);
+    }
 }
 
 fn bump_user(env: &Env, key: &DataKey) {
