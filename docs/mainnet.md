@@ -69,9 +69,16 @@ API (Railway environment `mainnet`):
 | `CORS_ORIGIN` | the `grow-mainnet` Vercel URL |
 | `KEEPER_SECRET` | secret of `grow-mainnet-keeper` |
 | `STATS_START_LEDGER` | the deploy ledger |
-| `DATABASE_HOST`, `DATABASE_PASSWORD`, … | Supabase |
+| `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USER`, `DATABASE_NAME` | Supabase **session pooler** (`aws-1-<region>.pooler.supabase.com`, `5432`, `postgres.<project-ref>`, `postgres`) |
+| `DATABASE_PASSWORD` | the Supabase database password, set with `--stdin` |
 | `PORT` | `3001` (the domain targets it) |
 | `RAILPACK_BUILD_CMD`, `RAILPACK_START_CMD`, `RAILPACK_NODE_VERSION` | same as testnet |
+
+Use the session pooler, not the direct host: `db.<ref>.supabase.co` only
+resolves over IPv6 and the Railway service has no IPv6 egress. Create the
+Supabase project with the Data API off; the API enables RLS on its tables
+anyway and creates them on boot, so no Supabase CLI or migration step is
+needed. Only mainnet gets a database, so testnet data never mixes in.
 
 Horizon, the passphrase and Circle USDC default from `STELLAR_NETWORK`. Leave
 `DEFINDEX_VAULT_ADDRESS` and `BLEND_POOL_ID` empty until the vault is verified
