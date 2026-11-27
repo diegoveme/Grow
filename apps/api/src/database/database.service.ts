@@ -44,6 +44,12 @@ create table if not exists sync_cursors (
   cursor     text        not null,
   updated_at timestamptz not null default now()
 );
+-- Grow reaches Postgres only as the table owner, which bypasses RLS. Enabling it
+-- with no policies keeps Supabase's public Data API (anon/authenticated keys)
+-- from reading or writing these tables.
+alter table remittances enable row level security;
+alter table contract_events enable row level security;
+alter table sync_cursors enable row level security;
 `;
 
 /**
