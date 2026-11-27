@@ -10,10 +10,11 @@ this file is the procedure and the record.
 |---|---|---|
 | Web (static Next.js export) | Vercel project `grow`, auto-deploys `main` | Vercel project `grow-mainnet`, auto-deploys `main` |
 | API (NestJS on Node 24) | Railway project `grow`, environment `production` | Railway project `grow`, environment `mainnet` |
-| Contract `yield_splitter` | `CBEQUA2ET4XTZAMDB3ZOB6MUOA2B6ACZ6TV2GCDHFTETKBVG7TMBZCYA` | see the deployment log below |
+| Contract `yield_splitter` | `CBEQUA2ET4XTZAMDB3ZOB6MUOA2B6ACZ6TV2GCDHFTETKBVG7TMBZCYA` | `CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD` |
 | USDC | `USDC:GATALTG…` (SAC `CAQCFV…`) | Circle `USDC:GA5ZSEJ…KZVN` (SAC `CCW67TSZ…MI75`) |
-| Soroban RPC | `soroban-testnet.stellar.org` | a provider (SDF runs no public mainnet RPC) |
-| Database | none (in-memory) | Postgres (Supabase) so `/stats` keeps its history |
+| Soroban RPC | `soroban-testnet.stellar.org` | Gateway.fm `soroban-rpc.mainnet.stellar.gateway.fm` (backup `mainnet.sorobanrpc.com`) |
+| Database | none (in-memory) | Postgres (Supabase, session pooler) so `/stats` keeps its history |
+| URLs | https://grow-green-one.vercel.app, API https://grow-api-production-683533a7.up.railway.app | https://grow-mainnet.vercel.app, API https://grow-api-mainnet.up.railway.app |
 
 Both web projects build the same commit; only environment variables differ.
 The API refuses to boot and the web build fails if a variable belongs to the
@@ -57,6 +58,13 @@ stellar contract invoke --network grow-mainnet --source grow-mainnet-admin \
   --id <CONTRACT_ID> -- config                                       # verify
 ```
 
+Costs seen on 2026-11-27: the upload took about 23.2 XLM (rent for the
+code entry; the simulation asked for up to 26.7), the deploy 0.06 XLM. Fund
+the admin with 40 XLM or more and keep enough for a future `upgrade`, which
+needs another upload. If a submission fails with `TxInsufficientFee`, the
+network is charging more than the CLI default of 100 stroops: add
+`--inclusion-fee 1000`.
+
 ## 3. Configure the services
 
 API (Railway environment `mainnet`):
@@ -88,6 +96,11 @@ as a preview.
 Web (Vercel project `grow-mainnet`): `NEXT_PUBLIC_STELLAR_NETWORK=PUBLIC`,
 `NEXT_PUBLIC_API_URL=<Railway mainnet URL>`. Mark them as `config` (public).
 
+A new Railway environment starts without the service: `railway up` then
+answers 404. Create it with `--duplicate production`, or commit a patch that
+adds the service (`environmentPatchCommit` in the Railway API) before the
+first deploy.
+
 Railway deploys from the CLI with `railway up`. Run it from a Linux
 filesystem path: uploading from a Windows drive mounted in WSL (`/mnt/c`) has
 produced files full of NUL bytes.
@@ -108,7 +121,7 @@ cd apps/api && API_URL=<testnet API> bun scripts/testnet-regression.ts
 |---|---|---|---|---|---|---|
 | 2026-11-24 | testnet | `CBEQUA2ET4XTZAMDB3ZOB6MUOA2B6ACZ6TV2GCDHFTETKBVG7TMBZCYA` | | | before 5911500 (stats start) | `grow-testnet-admin` |
 | 2026-11-26 | testnet (upgrade) | same | `700613bff894518bc9321dfb2bf25500f1978cd4f991667f1e42baba33de9be6` | `533c46b` (review fixes) | tx `e2e036f3…` | `grow-testnet-admin` |
-| | mainnet | | | | | |
+| 2026-11-27 | mainnet | `CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD` | `700613bff894518bc9321dfb2bf25500f1978cd4f991667f1e42baba33de9be6` | `533c46b` (contract source) | 65704158 (upload tx `5039b142…`, deploy tx `cc361a44…`) | `GC56UTMYTCWM5RLB7S2F6XY76RC5JNWOA7JEMK2C2AQXHX2ZW33LT3IH` (`grow-mainnet-admin`) |
 
 The mainnet upload must produce the same WASM hash as the last testnet
 upgrade (`stellar contract build` from the same commit and toolchain). If it
