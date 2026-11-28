@@ -1,11 +1,18 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { Asset, BASE_FEE, Memo, Operation, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
+import { Asset, Memo, Operation, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
 import { toStroops, fromStroops } from '@raiz/shared';
 import type { AssetCode } from '@raiz/shared';
 import { HorizonService, isNotFound } from '../stellar/horizon.service';
 import { truncateUtf8 } from '../stellar/memo';
 import { mapPayment } from './activity';
 import type { AccountInfo, BalanceEntry, PaymentRecord } from './accounts.types';
+
+/**
+ * Max fee per classic operation, in stroops. The network charges the going rate
+ * (usually 100); bidding 1000 (0.0001 XLM) keeps trustlines and payments from
+ * failing with tx_insufficient_fee when mainnet surges.
+ */
+const CLASSIC_FEE = '1000';
 
 /**
  * The classic money layer: balances, the activity feed, XLM/USDC payments,
@@ -116,7 +123,7 @@ export class AccountsService {
     }
 
     const builder = new TransactionBuilder(source, {
-      fee: BASE_FEE,
+      fee: CLASSIC_FEE,
       networkPassphrase: this.horizon.networkPassphrase,
     })
       .addOperation(operation)
@@ -130,7 +137,7 @@ export class AccountsService {
   async buildChangeTrust(account: string, limit?: string): Promise<string> {
     const source = await this.horizon.loadSource(account);
     return new TransactionBuilder(source, {
-      fee: BASE_FEE,
+      fee: CLASSIC_FEE,
       networkPassphrase: this.horizon.networkPassphrase,
     })
       .addOperation(Operation.changeTrust({ asset: this.horizon.usdc, limit }))
@@ -167,7 +174,7 @@ export class AccountsService {
     );
     const source = await this.horizon.loadSource(account);
     const tx = new TransactionBuilder(source, {
-      fee: BASE_FEE,
+      fee: CLASSIC_FEE,
       networkPassphrase: this.horizon.networkPassphrase,
     })
       .addOperation(
