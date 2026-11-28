@@ -128,6 +128,85 @@ upgrade (`stellar contract build` from the same commit and toolchain). If it
 differs, the code or the toolchain changed: run the testnet regression on the
 new build first.
 
+## Functions used from the app
+
+Mainnet contract: [`CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD`](https://stellar.expert/explorer/public/contract/CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD)
+(app: https://grow-mainnet.vercel.app).
+
+Every write follows the same path. The screen calls the API client
+([`lib/api/splits.ts:13`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/lib/api/splits.ts#L13)), the API builds and simulates the unsigned transaction
+([`soroban.service.ts:87`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/stellar/soroban.service.ts#L87)), the user's wallet signs it in the browser
+([`use-tx.ts:37`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/lib/use-tx.ts#L37)) and the API submits the signed XDR (`POST /splits/submit`).
+No key ever reaches the server.
+
+### The five invoked on mainnet
+
+#### 1. `set_split(user, spendable_bps)`
+
+The recipient chooses how much of every USDC remittance lands in their wallet and how much is saved for them. Stored on-chain, so senders cannot change it.
+
+- Screen: **Ajustes** → "Disponible vs. ahorro" → **Guardar reparto on-chain**
+- Frontend call: [`page.tsx:44`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/app/app/settings/page.tsx#L44)
+- API: `POST /splits/ratio/build`, [`splits.service.ts:128`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L128)
+- Contract: [`lib.rs:137`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L137)
+- Mainnet tx: pending
+
+#### 2. `receive(from, to, amount)`
+
+A remittance. Pulls USDC from the sender and splits it by the recipient's ratio: the spendable part goes to their wallet, the rest stays in the contract as their savings (clamped to the beta cap; any excess goes to the wallet).
+
+- Screen: **Enviar** → **Una persona**, asset USDC
+- Frontend call: [`single-send.tsx:73`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/send/single-send.tsx#L73)
+- API: `POST /splits/receive/build`, [`splits.service.ts:135`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L135)
+- Contract: [`lib.rs:161`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L161)
+- Mainnet tx: pending
+
+#### 3. `deposit_savings(user, amount)`
+
+The user moves USDC from their own wallet into their Grow savings.
+
+- Screen: **Inicio** → card "Ahorro en Grow" → **Apartar**
+- Frontend call: [`savings-card.tsx:46`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/app/savings-card.tsx#L46)
+- API: `POST /splits/deposit/build`, [`splits.service.ts:143`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L143)
+- Contract: [`lib.rs:428`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L428)
+- Mainnet tx: pending
+
+#### 4. `withdraw_savings(to, amount)`
+
+The owner takes savings back to their wallet. Only they can sign it, and it keeps working while the contract is paused.
+
+- Screen: **Inicio** → card "Ahorro en Grow" → **Retirar** (also the **Vault** page, [`vault-manage.tsx:39`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/app/vault-manage.tsx#L39))
+- Frontend call: [`savings-card.tsx:48`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/app/savings-card.tsx#L48)
+- API: `POST /splits/withdraw/build`, [`splits.service.ts:158`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L158)
+- Contract: [`lib.rs:460`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L460)
+- Mainnet tx: pending
+
+#### 5. `pay_from_savings(user, to, amount)`
+
+Pays a bill (school, clinic, landlord) straight from savings, without passing through the wallet first.
+
+- Screen: **Inicio** → card "Ahorro en Grow" → **Pagar**
+- Frontend call: [`savings-card.tsx:49`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/app/savings-card.tsx#L49)
+- API: `POST /splits/pay/build`, [`splits.service.ts:150`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L150)
+- Contract: [`lib.rs:487`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L487)
+- Mainnet tx: pending
+
+### Also wired in the app
+
+| Function | Screen | Frontend call | API | Contract |
+|---|---|---|---|---|
+| `send_batch` | **Enviar** → **Varias personas** (up to 10 people, each split by their own ratio) | [`batch-send.tsx:50`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/send/batch-send.tsx#L50) | [`splits.service.ts:169`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L169) | [`lib.rs:174`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L174) |
+| `create_schedule` | **Enviar** → **Recurrente** (after a USDC `approve`, [`recurring-send.tsx:64`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/send/recurring-send.tsx#L64)) | [`recurring-send.tsx:70`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/send/recurring-send.tsx#L70) | [`splits.service.ts:232`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L232) | [`lib.rs:202`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L202) |
+| `run_schedule` | **Enviar** → **Recurrente** → **Enviar ya**; otherwise the API keeper runs it | [`recurring-send.tsx:78`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/send/recurring-send.tsx#L78) | [`splits.service.ts:243`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L243) | [`lib.rs:257`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L257) |
+| `cancel_schedule` | **Enviar** → **Recurrente**, list of open schedules | [`recurring-send.tsx:89`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/send/recurring-send.tsx#L89) | [`splits.service.ts:247`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L247) | [`lib.rs:295`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L295) |
+| `create_pledge` | **Apartados** (earmark money for a fixed payee) | [`page.tsx:52`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/app/app/pledges/page.tsx#L52) | [`splits.service.ts:277`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L277) | [`lib.rs:311`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L311) |
+| `release_pledge / refund_pledge` | **Apartados**, the beneficiary pays the payee or the sender takes it back after expiry | [`page.tsx:65`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/app/app/pledges/page.tsx#L65) | [`splits.service.ts:288`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L288) / [`splits.service.ts:293`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L293) | [`lib.rs:367`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L367) / [`lib.rs:392`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L392) |
+
+Not called from the app: the admin functions `set_user_cap`, `set_paused`,
+`upgrade` and `recover_token` (signed by `grow-mainnet-admin` from the CLI,
+see below). The read-only views `get_split`, `savings`, `position`, `config`,
+`pledge` and `schedule` back the API's GET endpoints.
+
 ## Operating the contract
 
 - **Pause** (`set_paused true`): stops new remittances, batches, schedules,
