@@ -6,7 +6,7 @@
 
 *Your money arrives in seconds, and a part of it takes root.*
 
-[![Stellar](https://img.shields.io/badge/Stellar-Testnet-3ECAD6?logo=stellar&logoColor=white)](https://stellar.org)
+[![Stellar](https://img.shields.io/badge/Stellar-Mainnet%20beta-3ECAD6?logo=stellar&logoColor=white)](https://stellar.expert/explorer/public/contract/CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD)
 [![Soroban](https://img.shields.io/badge/Soroban-Rust-C8A84B?logo=rust&logoColor=white)](https://soroban.stellar.org)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs)](https://nextjs.org)
 [![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?logo=nestjs&logoColor=white)](https://nestjs.com)
@@ -14,7 +14,45 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-5C9E55.svg)](#license)
 
+**[Open the app (mainnet beta)](https://grow-mainnet.vercel.app)** · [Demo video](https://youtu.be/HmXsgK5MCFU) · [Testnet app](https://grow-green-one.vercel.app) · [Contract on stellar.expert](https://stellar.expert/explorer/public/contract/CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD)
+
 </div>
+
+---
+
+## Live
+
+| | Mainnet (beta, real USDC) | Testnet (demo) |
+| --- | --- | --- |
+| App | https://grow-mainnet.vercel.app | https://grow-green-one.vercel.app |
+| Contract `yield_splitter` | [`CCFVDG2U…MTJD`](https://stellar.expert/explorer/public/contract/CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD) | [`CBEQUA2E…ZCYA`](https://stellar.expert/explorer/testnet/contract/CBEQUA2ET4XTZAMDB3ZOB6MUOA2B6ACZ6TV2GCDHFTETKBVG7TMBZCYA) |
+| USDC | Circle `USDC:GA5Z…KZVN` | test `USDC:GATA…` |
+| Demo video | [watch](https://youtu.be/HmXsgK5MCFU) | |
+
+How each contract function is called from the app (screen, file and line) and
+the first mainnet transactions: [docs/mainnet.md](docs/mainnet.md#functions-used-from-the-app).
+
+> ⚠️ **Beta:** Grow has not been audited. Savings held per person are capped at
+> 100 USDC during the beta. Use small amounts.
+
+## How to use it
+
+1. **Connect a wallet** (Freighter, xBull, Lobstr, Albedo…) set to **Mainnet**,
+   with a little XLM for fees, at https://grow-mainnet.vercel.app.
+2. **Receive → add USDC** (the trustline) if the wallet doesn't hold USDC yet.
+3. **Settings → choose your split** (**Save split on-chain**), for example 70% to your wallet and 30% to
+   savings, and save it on-chain. Anyone who sends you USDC through Grow is split
+   by this ratio.
+4. **Send → One person** to send USDC (or XLM). **Several people** pays up to 10
+   at once; **Recurring** sends every week or month.
+5. **Overview → "Savings in Grow"**: **Set aside** USDC from your wallet, **Withdraw**
+   it back, or **Pay** a school, clinic or landlord straight from savings.
+6. **Earmarked**: set money aside for a specific payee; the family pays it, or
+   it comes back to you after it expires.
+7. **/stats** shows public on-chain usage of the contract.
+
+Every transaction is built by the API, signed by your wallet in the browser and
+visible on [stellar.expert](https://stellar.expert/explorer/public/contract/CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD).
 
 ---
 
@@ -144,12 +182,8 @@ bun run deploy       # builds, deploys with the constructor; prints the contract
 Mainnet needs an explicit identity and confirmation, see
 [packages/contracts](packages/contracts/README.md#deploy).
 
-> The earlier testnet deployment
-> (`CAI6YBXYA56VKKDQHMIGJDGSFTQJPJZHZODBS3YZCTTPM2UOGNLFVYYC`) uses the previous
-> contract interface. Redeploy and update `YIELD_SPLITTER_CONTRACT_ID` to use this
-> version of the app.
-
-See [docs/testnet.md](docs/testnet.md) for testnet details,
+See [docs/mainnet.md](docs/mainnet.md) for the mainnet runbook and deployment log,
+[docs/testnet.md](docs/testnet.md) for testnet details,
 [docs/architecture.md](docs/architecture.md) for how the pieces fit and
 [docs/security.md](docs/security.md) for the threat model and monitoring plan.
 
@@ -171,8 +205,8 @@ See [docs/testnet.md](docs/testnet.md) for testnet details,
 | `set_user_cap` · `set_paused` · `recover_token` · `upgrade` | Admin guardrails (withdrawals are never paused) |
 | `position(user)` · `config()` | Read savings + ratio, and the contract settings |
 
-**Events:** `SplitSet` · `FundsReceived` · `SavingsDeposited` · `SavingsWithdrawn` · `SavingsSpent` · `UserCapSet` · `PausedSet`
-&nbsp;·&nbsp; **Tests:** `cd packages/contracts && cargo test` (60 passing, plus 2 upgrade tests via `bun run test:upgrade`)
+**Events:** 15 typed events for splits, remittances, savings, schedules, pledges and admin actions (see [docs/architecture.md](docs/architecture.md))
+&nbsp;·&nbsp; **Tests:** `cd packages/contracts && cargo test` (74 passing, 78 with the upgrade and mainnet-budget tests via `bun run test:upgrade`)
 
 ---
 
@@ -199,11 +233,14 @@ Base URL `http://localhost:3001/api` · interactive docs at `/api/docs`.
 
 ## Roadmap
 
+- [x] Mainnet beta: contract, API and app live with per-person caps
+- [x] Recurring remittances, batch payments and earmarked payments
+- [x] DeFindex vault + Blend pool on testnet
+- [ ] DeFindex vault on mainnet (shown as a preview today)
 - [ ] Contract-native vault deposits (savings flow into DeFindex from the contract)
-- [ ] Live DeFindex vault + Blend pool wiring on testnet
-- [ ] Recurring/streamed remittances
-- [ ] In-app cash-out UX polish for SEP-24
-- [ ] Mainnet readiness & audit
+- [ ] SEP-24 cash-out with a mainnet anchor
+- [ ] Multisig admin and an upgrade timelock
+- [ ] Third-party security audit
 
 ---
 
@@ -219,13 +256,14 @@ Base URL `http://localhost:3001/api` · interactive docs at `/api/docs`.
 
 Durante este Boot Camp de una semana, llevaremos Grow de un prototipo en testnet a una beta real y funcional en mainnet. El alcance es pequeño a propósito: lanzar algo real, seguro y utilizable.
 
-### Qué vamos a lanzar el 27 de noviembre
+### Qué lanzamos el 27 de noviembre
 
-- ✅ Contrato `yield_splitter` desplegado en **Stellar mainnet**, con topes de depósito por usuario
-- ✅ Flujo principal funcionando de punta a punta: conectar wallet → elegir proporción → enviar USDC → ver posición
-- ✅ La parte de ahorro enviada hacia un vault de rendimiento (DeFindex → Blend), con APY en vivo en el dashboard
-- ✅ API desplegada y conectada al contrato en mainnet
-- ✅ Probado con transacciones reales por un grupo pequeño de usuarios beta
+- ✅ Contrato `yield_splitter` desplegado en **Stellar mainnet** ([`CCFVDG2U…MTJD`](https://stellar.expert/explorer/public/contract/CCFVDG2UZ2IJBXMHVFKVLWLJ6Z2JBTJWNXFNIA2VWACNA6IFUKKOMTJD)), con tope de 100 USDC de ahorro por persona
+- ✅ App en vivo: https://grow-mainnet.vercel.app (demo: [video](https://youtu.be/HmXsgK5MCFU))
+- ✅ Flujo principal de punta a punta: conectar wallet → elegir proporción → enviar USDC → ahorrar, retirar y pagar desde el ahorro
+- ✅ API desplegada en mainnet, conectada al contrato y a Postgres (Supabase)
+- ✅ Probado con transacciones reales desde la app: las 5 funciones principales, con sus links en [docs/mainnet.md](docs/mainnet.md#functions-used-from-the-app)
+- ⏳ Vault de rendimiento (DeFindex → Blend): funciona en testnet; en mainnet se muestra como vista previa hasta verificarlo
 
 ### Plan día por día
 
@@ -241,7 +279,7 @@ Durante este Boot Camp de una semana, llevaremos Grow de un prototipo en testnet
 
 - Retiro a moneda local con SEP-24 en mainnet (próximamente)
 - Auditoría de seguridad de terceros
-- Remesas recurrentes o por streaming
+- Vault de DeFindex en mainnet
 
 > ⚠️ **Aviso beta:** Grow no ha sido auditado. Usa solo montos pequeños.
 
