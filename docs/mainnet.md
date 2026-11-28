@@ -149,7 +149,7 @@ The recipient chooses how much of every USDC remittance lands in their wallet an
 - Frontend call: [`page.tsx:44`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/app/app/settings/page.tsx#L44)
 - API: `POST /splits/ratio/build`, [`splits.service.ts:128`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L128)
 - Contract: [`lib.rs:137`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L137)
-- Mainnet tx: pending
+- Mainnet tx (from the app): [`56918035…`](https://stellar.expert/explorer/public/tx/569180356e0b34950fb18e585a2282f3d14605db2fe5957b16b1caad296ee6ce)
 
 #### 2. `receive(from, to, amount)`
 
@@ -159,7 +159,7 @@ A remittance. Pulls USDC from the sender and splits it by the recipient's ratio:
 - Frontend call: [`single-send.tsx:73`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/send/single-send.tsx#L73)
 - API: `POST /splits/receive/build`, [`splits.service.ts:135`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L135)
 - Contract: [`lib.rs:161`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L161)
-- Mainnet tx: pending
+- Mainnet tx (from the app): [`bb8ae03e…`](https://stellar.expert/explorer/public/tx/bb8ae03e1321942b3cd376373e4ba39e58a55550d6e6847acee7249974ad2c48)
 
 #### 3. `deposit_savings(user, amount)`
 
@@ -169,7 +169,7 @@ The user moves USDC from their own wallet into their Grow savings.
 - Frontend call: [`savings-card.tsx:46`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/app/savings-card.tsx#L46)
 - API: `POST /splits/deposit/build`, [`splits.service.ts:143`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L143)
 - Contract: [`lib.rs:428`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L428)
-- Mainnet tx: pending
+- Mainnet tx (from the app): [`c7f030be…`](https://stellar.expert/explorer/public/tx/c7f030bee1ae93e86afe2bef6e62cafc5297e0d5d986180f15b1214f1261fd57)
 
 #### 4. `withdraw_savings(to, amount)`
 
@@ -179,7 +179,7 @@ The owner takes savings back to their wallet. Only they can sign it, and it keep
 - Frontend call: [`savings-card.tsx:48`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/app/savings-card.tsx#L48)
 - API: `POST /splits/withdraw/build`, [`splits.service.ts:158`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L158)
 - Contract: [`lib.rs:460`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L460)
-- Mainnet tx: pending
+- Mainnet tx (from the app): [`b42ae4bb…`](https://stellar.expert/explorer/public/tx/b42ae4bb698b1a686c8f6997bddb9870a7d161c0998d74926f64e638c4c7cefd)
 
 #### 5. `pay_from_savings(user, to, amount)`
 
@@ -189,7 +189,7 @@ Pays a bill (school, clinic, landlord) straight from savings, without passing th
 - Frontend call: [`savings-card.tsx:49`](https://github.com/diegoveme/Grow/blob/f285539/apps/web/src/components/app/savings-card.tsx#L49)
 - API: `POST /splits/pay/build`, [`splits.service.ts:150`](https://github.com/diegoveme/Grow/blob/f285539/apps/api/src/splits/splits.service.ts#L150)
 - Contract: [`lib.rs:487`](https://github.com/diegoveme/Grow/blob/f285539/packages/contracts/contracts/yield_splitter/src/lib.rs#L487)
-- Mainnet tx: pending
+- Mainnet tx (from the app): [`64e95678…`](https://stellar.expert/explorer/public/tx/64e95678bb0e1fb7af12dd32e2e81b8c27417e1bb744738a21a3a333b98d21f7)
 
 ### Also wired in the app
 
